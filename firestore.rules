@@ -3,8 +3,39 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId}/pushTokens/{tokenId} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId;
+      allow read, delete: if isOwner(userId) && isValidTokenId(tokenId);
+      allow create, update: if isOwner(userId)
+        && isValidTokenId(tokenId)
+        && isValidPushToken();
+    }
+
+    // Firebase Admin SDK만 알림 발송 작업을 생성하고 처리합니다.
+    match /notificationJobs/{jobId} {
+      allow read, write: if false;
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isValidTokenId(tokenId) {
+      return tokenId.matches('^[a-f0-9]{64}$');
+    }
+
+    function isValidPushToken() {
+      return request.resource.data.keys().hasOnly([
+          'enabled',
+          'platform',
+          'provider',
+          'token',
+          'updatedAt'
+        ])
+        && request.resource.data.enabled == true
+        && request.resource.data.platform == 'android'
+        && request.resource.data.provider == 'fcm'
+        && request.resource.data.token is string
+        && request.resource.data.token.size() <= 4096
+        && request.resource.data.updatedAt == request.time;
     }
   }
 }
