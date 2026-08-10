@@ -10,8 +10,12 @@
     "dev:web": "pnpm --filter @chongchong/web dev",
     "dev:mobile": "pnpm --filter @chongchong/mobile start",
     "build:web": "pnpm --filter @chongchong/web build",
+    "doctor:mobile": "expo-doctor apps/mobile",
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
-    "check": "pnpm lint && pnpm typecheck && pnpm build:web"
+    "check": "pnpm lint && pnpm typecheck && pnpm build:web && pnpm doctor:mobile"
+  },
+  "devDependencies": {
+    "expo-doctor": "1.20.1"
   }
 }
