@@ -31,3 +31,12 @@ pnpm dlx eas-cli credentials --platform android
 ```
 
 서명키와 서비스 계정 키는 저장소에 커밋하지 않고 EAS Credentials에서 관리합니다.
+
+## Android Google 로그인
+
+- Firebase Console의 **Authentication > 로그인 방법**에서 Google 제공업체를 활성화합니다.
+- Firebase Android 앱에는 EAS 서명키와 Google Play App Signing의 SHA-1을 모두 등록합니다.
+- SHA 지문이나 OAuth 클라이언트를 변경했다면 새 `google-services.json`을 내려받아 `apps/mobile/google-services.json`을 교체합니다.
+- 네이티브 모듈을 사용하므로 Expo Go가 아닌 development build에서 로그인합니다.
+
+로컬 Android 빌드에는 JDK 17과 Android SDK가 필요합니다.

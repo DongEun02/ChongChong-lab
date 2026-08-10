@@ -1,6 +1,12 @@
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { AuthProvider } from './types';
@@ -8,6 +14,8 @@ import type { AuthProvider } from './types';
 type LoginScreenProps = {
   provider: AuthProvider;
   onContinue: (provider: AuthProvider) => void;
+  isLoading?: boolean;
+  errorMessage?: string;
 };
 
 const providerContent = {
@@ -19,7 +27,12 @@ const providerContent = {
   },
 } as const;
 
-export function LoginScreen({ provider, onContinue }: LoginScreenProps) {
+export function LoginScreen({
+  provider,
+  onContinue,
+  isLoading = false,
+  errorMessage,
+}: LoginScreenProps) {
   const content = providerContent[provider];
   const isApple = provider === 'apple';
 
@@ -44,14 +57,19 @@ export function LoginScreen({ provider, onContinue }: LoginScreenProps) {
         <Pressable
           accessibilityHint={`${content.label} 로그인을 시작합니다`}
           accessibilityRole="button"
+          accessibilityState={{ busy: isLoading, disabled: isLoading }}
+          disabled={isLoading}
           onPress={() => onContinue(provider)}
           style={({ pressed }) => [
             styles.loginButton,
             isApple ? styles.appleButton : styles.googleButton,
             pressed && styles.pressedButton,
+            isLoading && styles.disabledButton,
           ]}
         >
-          {isApple ? (
+          {isLoading ? (
+            <ActivityIndicator color={isApple ? '#FFFFFF' : '#111111'} />
+          ) : isApple ? (
             <Text style={styles.appleIcon} accessibilityElementsHidden>
               
             </Text>
@@ -64,9 +82,15 @@ export function LoginScreen({ provider, onContinue }: LoginScreenProps) {
             />
           )}
           <Text style={[styles.loginLabel, isApple && styles.appleLabel]}>
-            {content.label}
+            {isLoading ? '로그인 중...' : content.label}
           </Text>
         </Pressable>
+
+        {errorMessage ? (
+          <Text accessibilityLiveRegion="polite" style={styles.errorMessage}>
+            {errorMessage}
+          </Text>
+        ) : null}
 
         <Text style={styles.terms}>
           계속하면 서비스 이용약관과 개인정보 처리방침에 동의하게 됩니다.
@@ -132,6 +156,9 @@ const styles = StyleSheet.create({
   pressedButton: {
     opacity: 0.72,
   },
+  disabledButton: {
+    opacity: 0.6,
+  },
   socialIcon: {
     width: 20,
     height: 20,
@@ -150,6 +177,13 @@ const styles = StyleSheet.create({
   },
   appleLabel: {
     color: '#FFFFFF',
+  },
+  errorMessage: {
+    marginTop: 12,
+    color: '#B42318',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   terms: {
     minHeight: 36,
