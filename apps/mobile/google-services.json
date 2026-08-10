@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "361778716769",
+    "project_id": "chongchong-86716",
+    "storage_bucket": "chongchong-86716.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:361778716769:android:c7eeb852c9c0f776cd0a20",
+        "android_client_info": {
+          "package_name": "com.chongchong.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "361778716769-vuota2l0gjjenkq812h9s6eo1cqll1d8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.chongchong.app",
+            "certificate_hash": "5a695522754188350b588d137a12e2be8605bedd"
+          }
+        },
+        {
+          "client_id": "361778716769-b5ii3g4me0imb3cen6tqld1od5guahim.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA1Rz0EzW82d5jtaz9fWywJtFumOjledwE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "361778716769-b5ii3g4me0imb3cen6tqld1od5guahim.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

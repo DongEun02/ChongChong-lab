@@ -30,3 +30,5 @@ pnpm check
 - `develop`: 다음 배포를 위한 통합 브랜치
 - `feature/*`: 기능 또는 페이지 단위 작업 브랜치
 - 커밋 메시지는 Angular 형식인 `type(scope): subject`를 사용합니다.
+
+배포 환경과 EAS 빌드 방법은 [`docs/release.md`](docs/release.md)를 참고합니다.
