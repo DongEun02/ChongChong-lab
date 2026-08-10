@@ -12,6 +12,7 @@ import { LoginScreen } from './src/features/auth/LoginScreen';
 import { SplashScreen } from './src/features/auth/SplashScreen';
 import type { AuthProvider } from './src/features/auth/types';
 import { useAuthSession } from './src/features/auth/useAuthSession';
+import { usePushNotifications } from './src/features/notifications/usePushNotifications';
 
 const SPLASH_DURATION_MS = 1_500;
 
@@ -20,6 +21,7 @@ export default function App() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [loginError, setLoginError] = useState<string>();
   const { isInitializing, user } = useAuthSession();
+  const pushNotifications = usePushNotifications(user?.uid);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsSplashVisible(false), SPLASH_DURATION_MS);
@@ -60,7 +62,11 @@ export default function App() {
       {shouldShowSplash ? (
         <SplashScreen />
       ) : user ? (
-        <AuthenticatedScreen onSignOut={handleSignOut} user={user} />
+        <AuthenticatedScreen
+          onSignOut={handleSignOut}
+          pushNotifications={pushNotifications}
+          user={user}
+        />
       ) : (
         <LoginScreen
           errorMessage={loginError}
