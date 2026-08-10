@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.expo/
+web-build/
+apps/web/src/assets/hero.png
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Native build outputs
+android/
+ios/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+.claude/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

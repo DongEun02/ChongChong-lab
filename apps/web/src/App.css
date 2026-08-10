@@ -1,0 +1,31 @@
+.app-shell {
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+  justify-content: center;
+  padding: 24px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-brand);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+h1 {
+  margin: 12px 0 0;
+  color: var(--color-text-primary);
+  font-size: 28px;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+}
+
+.description {
+  max-width: 350px;
+  margin: 12px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  line-height: 1.5;
+}
