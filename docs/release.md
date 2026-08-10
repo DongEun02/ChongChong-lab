@@ -40,3 +40,19 @@ pnpm dlx eas-cli credentials --platform android
 - 네이티브 모듈을 사용하므로 Expo Go가 아닌 development build에서 로그인합니다.
 
 로컬 Android 빌드에는 JDK 17과 Android SDK가 필요합니다.
+
+## Android 푸시 알림
+
+- 알림 수신 동의는 로그인 직후가 아니라 사용자가 **푸시 알림** 스위치를 켤 때 요청합니다.
+- Expo Go에서는 Android 원격 알림을 테스트할 수 없으므로 development build 또는 설치된 APK/AAB를 사용합니다.
+- 앱은 Expo Push Token이 아닌 Firebase의 네이티브 FCM 토큰을 등록합니다.
+- 토큰은 Firestore의 `users/{uid}/pushTokens/{tokenHash}`에 저장되고, 로그아웃 후 다시 로그인해도 사용자별 설정을 복원합니다.
+- 토큰 원문은 문서 ID로 사용하지 않고 SHA-256 해시를 문서 ID로 사용합니다.
+
+Firestore 데이터베이스를 만든 뒤 저장소 루트에서 보안 규칙을 배포합니다.
+
+```bash
+pnpm dlx firebase-tools deploy --only firestore:rules --project chongchong-86716
+```
+
+`firestore.rules`는 로그인한 사용자가 자신의 푸시 토큰 문서만 읽고 쓸 수 있도록 제한합니다. 실제 알림 발송 서버에서는 Firebase Admin SDK를 사용하며 서비스 계정 키를 저장소에 커밋하지 않습니다.

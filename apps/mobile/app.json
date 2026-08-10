@@ -32,6 +32,14 @@
       "react-native-nitro-google-signin",
       "expo-image",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#00C471",
+          "defaultChannel": "general"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#FFFFFF",
