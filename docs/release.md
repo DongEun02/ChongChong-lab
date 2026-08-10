@@ -56,3 +56,28 @@ pnpm dlx firebase-tools deploy --only firestore:rules --project chongchong-86716
 ```
 
 `firestore.rules`는 로그인한 사용자가 자신의 푸시 토큰 문서만 읽고 쓸 수 있도록 제한합니다. 실제 알림 발송 서버에서는 Firebase Admin SDK를 사용하며 서비스 계정 키를 저장소에 커밋하지 않습니다.
+
+## 푸시 발송 Functions
+
+Cloud Functions는 Node.js 22 런타임을 사용합니다. 현재 Firestore 데이터베이스 위치가 `nam5`이므로 공식 권장 인접 리전인 `us-central1`에 `deliverPushNotification`을 배포합니다. 배포 전 Firebase 프로젝트를 Blaze 요금제로 전환하고 Cloud Messaging API가 활성화되어 있어야 합니다.
+
+PR을 머지한 뒤 저장소 루트에서 배포합니다.
+
+```bash
+git switch develop
+git pull origin develop
+pnpm install --frozen-lockfile
+pnpm dlx firebase-tools deploy --only functions:deliverPushNotification --project chongchong-86716
+```
+
+배포 후 Firebase Console의 Firestore 데이터 탭에서 `notificationJobs` 컬렉션에 다음 문서를 생성하면 실제 기기로 테스트할 수 있습니다. `recipientUserIds`에는 Authentication에서 확인한 Firebase UID를 넣습니다.
+
+| 필드 | Firestore 타입 | 예시 |
+| --- | --- | --- |
+| `status` | string | `pending` |
+| `title` | string | `총총` |
+| `body` | string | `푸시 알림 테스트예요.` |
+| `recipientUserIds` | array | `["Firebase UID"]` |
+| `data` | map | `{ "path": "/notices" }` |
+
+문서 생성 후 `status`가 `sent`로 바뀌고 `successCount`가 1 이상이면 FCM 발송에 성공한 것입니다. `failed`인 경우 같은 문서의 `errorMessage`와 Cloud Functions 로그를 확인합니다. 앱 클라이언트는 보안 규칙에 의해 `notificationJobs`를 직접 생성할 수 없습니다.

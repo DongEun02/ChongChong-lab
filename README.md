@@ -22,7 +22,7 @@ pnpm dev:mobile
 pnpm check
 ```
 
-`pnpm check`는 웹·모바일 린트, TypeScript 검사, 웹 프로덕션 빌드, Expo 프로젝트 진단을 차례로 실행합니다. 동일한 검사는 `main` 또는 `develop` 대상 PR과 두 브랜치의 push에서 GitHub Actions로 실행됩니다.
+`pnpm check`는 웹·모바일·Functions 린트, TypeScript 검사, 단위 테스트, 웹 프로덕션 빌드, Expo 프로젝트 진단을 차례로 실행합니다. 동일한 검사는 `main` 또는 `develop` 대상 PR과 두 브랜치의 push에서 GitHub Actions로 실행됩니다.
 
 ## 브랜치와 커밋
 

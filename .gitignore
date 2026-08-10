@@ -3,6 +3,7 @@ node_modules/
 
 # Build outputs
 dist/
+functions/lib/
 .expo/
 web-build/
 apps/web/src/assets/hero.png
