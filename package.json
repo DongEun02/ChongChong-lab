@@ -1,0 +1,17 @@
+{
+  "name": "chongchong-lab",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @chongchong/web dev",
+    "dev:mobile": "pnpm --filter @chongchong/mobile start",
+    "build:web": "pnpm --filter @chongchong/web build",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "check": "pnpm lint && pnpm typecheck && pnpm build:web"
+  }
+}
