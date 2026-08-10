@@ -1,43 +1,41 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Platform } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { LoginScreen } from './src/features/auth/LoginScreen';
+import { SplashScreen } from './src/features/auth/SplashScreen';
+import type { AuthProvider } from './src/features/auth/types';
+
+const SPLASH_DURATION_MS = 1_500;
 
 export default function App() {
+  const [isSplashVisible, setIsSplashVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsSplashVisible(false), SPLASH_DURATION_MS);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleContinue = (provider: AuthProvider) => {
+    const providerName = provider === 'apple' ? 'Apple' : 'Google';
+
+    Alert.alert(
+      `${providerName} 로그인`,
+      'Firebase 인증 설정을 연결한 다음 PR에서 로그인을 활성화할게요.',
+    );
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.eyebrow}>CHONGCHONG MOBILE</Text>
-      <Text style={styles.title}>네이티브 셸 준비 완료</Text>
-      <Text style={styles.description}>
-        로그인, 하단 탭, WebView, 푸시 알림 기능이 이 앱에 추가됩니다.
-      </Text>
-      <StatusBar style="dark" />
-    </View>
+    <SafeAreaProvider>
+      {isSplashVisible ? (
+        <SplashScreen />
+      ) : (
+        <LoginScreen
+          onContinue={handleContinue}
+          provider={Platform.OS === 'ios' ? 'apple' : 'google'}
+        />
+      )}
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  eyebrow: {
-    color: '#00C878',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-  },
-  title: {
-    color: '#172033',
-    fontSize: 28,
-    fontWeight: '700',
-    marginTop: 12,
-  },
-  description: {
-    color: '#6B7280',
-    fontSize: 16,
-    lineHeight: 24,
-    marginTop: 12,
-  },
-});
