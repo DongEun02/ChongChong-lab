@@ -18,6 +18,7 @@ import {
   parseCreateNoticeRequest,
   parseUpdateNoticeRequest,
 } from './notices.js';
+import { parseReadNotificationRequest } from './notifications.js';
 
 import {
   chunkTargets,
@@ -731,6 +732,48 @@ export const sendNoticeReminder = onCall(
   },
 );
 
+export const readNotification = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseReadNotificationRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const notificationReference = db
+      .collection('users')
+      .doc(request.auth.uid)
+      .collection('notifications')
+      .doc(input.notificationId);
+
+    await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(notificationReference);
+      if (!snapshot.exists) {
+        throw new HttpsError('not-found', '알림을 찾을 수 없습니다.');
+      }
+      if (!snapshot.get('readAt')) {
+        transaction.update(notificationReference, {
+          readAt: FieldValue.serverTimestamp(),
+        });
+      }
+    });
+
+    return { notificationId: input.notificationId };
+  },
+);
+
 export const deliverPushNotification = onDocumentCreated(
   {
     document: 'notificationJobs/{jobId}',
@@ -767,6 +810,11 @@ export const deliverPushNotification = onDocumentCreated(
     }
 
     try {
+      await persistInAppNotifications(
+        snapshot.id,
+        job,
+        snapshot.get('createdAt'),
+      );
       const targets = await getPushTokenTargets(job.recipientUserIds);
       let failureCount = 0;
       let successCount = 0;
@@ -818,6 +866,32 @@ export const deliverPushNotification = onDocumentCreated(
     }
   },
 );
+
+async function persistInAppNotifications(
+  jobId: string,
+  job: ReturnType<typeof parseNotificationJob>,
+  createdAt: unknown,
+) {
+  const batch = db.batch();
+  for (const userId of job.recipientUserIds) {
+    const notificationReference = db
+      .collection('users')
+      .doc(userId)
+      .collection('notifications')
+      .doc(jobId);
+    batch.set(notificationReference, {
+      body: job.body,
+      createdAt:
+        createdAt instanceof Timestamp
+          ? createdAt
+          : FieldValue.serverTimestamp(),
+      data: job.data,
+      readAt: null,
+      title: job.title,
+    });
+  }
+  await batch.commit();
+}
 
 async function claimJob(
   reference: DocumentReference,

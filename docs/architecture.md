@@ -35,6 +35,12 @@ React Native와 Expo로 다음 네이티브 기능을 담당합니다.
 4. FCM에서 만료 또는 미등록으로 응답한 토큰을 삭제합니다.
 5. 작업 문서에 성공·실패·대상 수와 완료 상태를 기록합니다.
 
+발송 작업을 처리할 때 `users/{userId}/notifications/{jobId}`에도 사용자별
+알림을 저장합니다. 알림 목록은 사용자 본인만 읽을 수 있고, 읽음 처리는
+`readNotification` Callable Function이 인증된 사용자 경로의 `readAt`을
+갱신합니다. 따라서 푸시 권한을 끈 사용자도 앱 안에서는 알림을 확인할 수
+있습니다.
+
 공지 리마인드는 클라이언트가 `notificationJobs`를 직접 쓰지 않고
 `sendNoticeReminder` Callable Function을 호출합니다. 함수는 로그인 상태와
 `studies/{studyId}.leaderId`를 확인하고, 활성 멤버이면서 아직 공지를 읽지 않은
