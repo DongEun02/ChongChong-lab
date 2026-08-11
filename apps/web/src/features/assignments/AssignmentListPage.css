@@ -1,0 +1,119 @@
+.assignment-list-page {
+  padding: 20px;
+}
+
+.assignment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.assignment-data-state {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.assignment-data-state.is-error {
+  background: rgba(235, 57, 57, 0.08);
+  color: #b42318;
+}
+
+.assignment-card {
+  display: flex;
+  width: 100%;
+  min-height: 184px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 19px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  background: #fff;
+  color: #111;
+  text-align: left;
+}
+
+.assignment-badges {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 4px;
+}
+
+.assignment-status,
+.assignment-reminder {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #00c471;
+  color: #fff;
+  font-size: 12px;
+  letter-spacing: -0.3px;
+  line-height: 18px;
+}
+
+.assignment-reminder {
+  gap: 4px;
+  background: #ececee;
+  color: #111;
+}
+
+.assignment-reminder img {
+  width: 12px;
+  height: 12px;
+}
+
+.assignment-status.is-submitted {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #fff;
+  color: #00c471;
+}
+
+.assignment-card strong {
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+}
+
+.assignment-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 4px;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 14px;
+  letter-spacing: -0.35px;
+  line-height: 20px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.assignment-deadline {
+  margin-top: auto;
+  color: #00c471;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.assignment-submission-type {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  gap: 6px;
+  color: rgba(15, 23, 42, 0.4);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.assignment-submission-type img {
+  width: 13px;
+  height: 13px;
+}

@@ -11,6 +11,12 @@ import leadHomeMascot from './assets/figma/lead-home-mascot.png'
 import membersIcon from './assets/figma/members.svg'
 import noticesIcon from './assets/figma/notices.svg'
 import reminderMascot from './assets/figma/reminder-mascot.png'
+import { AssignmentListPage } from './features/assignments/AssignmentListPage'
+import {
+  ASSIGNMENT_PREVIEW,
+  parseAssignmentPayloads,
+  type AssignmentSummary,
+} from './features/assignments/assignments'
 import { NotificationListPage } from './features/notifications/NotificationListPage'
 import {
   NOTIFICATION_PREVIEW,
@@ -42,6 +48,7 @@ import './App.css'
 
 type TabId = 'home' | 'notices' | 'assignments' | 'members'
 type NoticeDataStatus = 'error' | 'loading' | 'ready'
+type AssignmentDataStatus = 'error' | 'loading' | 'ready'
 type NotificationDataStatus = 'error' | 'loading' | 'ready'
 type StudyDataStatus = 'error' | 'loading' | 'ready'
 type MemberDataStatus = 'error' | 'loading' | 'ready'
@@ -122,7 +129,7 @@ function postToNative(message: NativeMessage) {
 
 function App() {
   const [isStudyOpen, setIsStudyOpen] = useState(
-    PAGE_PREVIEW === 'delete-notice',
+    PAGE_PREVIEW === 'assignments' || PAGE_PREVIEW === 'delete-notice',
   )
   const [isCreateStudyOpen, setIsCreateStudyOpen] = useState(false)
   const [isCreatingStudy, setIsCreatingStudy] = useState(false)
@@ -157,7 +164,9 @@ function App() {
     window.ReactNativeWebView ? 'loading' : 'ready',
   )
   const [selectedStudy, setSelectedStudy] = useState<StudySummary>(STUDY)
-  const [activeTab, setActiveTab] = useState<TabId>('home')
+  const [activeTab, setActiveTab] = useState<TabId>(
+    PAGE_PREVIEW === 'assignments' ? 'assignments' : 'home',
+  )
   const [selectedNoticeId, setSelectedNoticeId] = useState<string | null>(
     PAGE_PREVIEW === 'delete-notice' ? NOTICE_DETAILS[0]?.id ?? null : null,
   )
@@ -167,6 +176,13 @@ function App() {
   const [noticeDataStatus, setNoticeDataStatus] = useState<NoticeDataStatus>(
     window.ReactNativeWebView ? 'loading' : 'ready',
   )
+  const [assignments, setAssignments] = useState<AssignmentSummary[]>(
+    window.ReactNativeWebView ? [] : ASSIGNMENT_PREVIEW,
+  )
+  const [assignmentDataStatus, setAssignmentDataStatus] =
+    useState<AssignmentDataStatus>(
+      window.ReactNativeWebView ? 'loading' : 'ready',
+    )
   const [members, setMembers] = useState<StudyMember[]>(
     window.ReactNativeWebView ? [] : PREVIEW_MEMBERS,
   )
@@ -227,6 +243,26 @@ function App() {
       }
     }
     window.addEventListener('chongchong:notices', handleNotices)
+    const handleAssignments = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) {
+        return
+      }
+
+      if (detail.status === 'error') {
+        setAssignmentDataStatus('error')
+        return
+      }
+
+      if (detail.status === 'ready' && 'assignments' in detail) {
+        const parsedAssignments = parseAssignmentPayloads(detail.assignments)
+        if (parsedAssignments) {
+          setAssignments(parsedAssignments)
+          setAssignmentDataStatus('ready')
+        }
+      }
+    }
+    window.addEventListener('chongchong:assignments', handleAssignments)
     const handleStudyCreateResult = (event: Event) => {
       const detail = (event as CustomEvent<unknown>).detail
       if (!detail || typeof detail !== 'object' || !('status' in detail)) {
@@ -447,6 +483,7 @@ function App() {
       window.removeEventListener('chongchong:close-notice', handleCloseNotice)
       window.removeEventListener('chongchong:close-subpage', handleCloseSubpage)
       window.removeEventListener('chongchong:notices', handleNotices)
+      window.removeEventListener('chongchong:assignments', handleAssignments)
       window.removeEventListener('chongchong:study-create-result', handleStudyCreateResult)
       window.removeEventListener('chongchong:study-join-result', handleStudyJoinResult)
       window.removeEventListener('chongchong:notice-create-result', handleNoticeCreateResult)
@@ -464,6 +501,8 @@ function App() {
     setActiveTab('home')
     setMembers(window.ReactNativeWebView ? [] : PREVIEW_MEMBERS)
     setMemberDataStatus(window.ReactNativeWebView ? 'loading' : 'ready')
+    setAssignments(window.ReactNativeWebView ? [] : ASSIGNMENT_PREVIEW)
+    setAssignmentDataStatus(window.ReactNativeWebView ? 'loading' : 'ready')
     postToNative({ type: 'study-selected', studyId: study.id })
   }
 
@@ -831,6 +870,8 @@ function App() {
   return (
     <StudyPage
       activeTab={activeTab}
+      assignmentDataStatus={assignmentDataStatus}
+      assignments={assignments}
       displayName={displayName}
       memberDataStatus={memberDataStatus}
       members={members}
@@ -938,6 +979,8 @@ function StudyList({
 
 type StudyPageProps = {
   activeTab: TabId
+  assignmentDataStatus: AssignmentDataStatus
+  assignments: AssignmentSummary[]
   displayName: string
   memberDataStatus: MemberDataStatus
   members: StudyMember[]
@@ -955,6 +998,8 @@ type StudyPageProps = {
 
 function StudyPage({
   activeTab,
+  assignmentDataStatus,
+  assignments,
   displayName,
   memberDataStatus,
   members,
@@ -1010,6 +1055,12 @@ function StudyPage({
           notices={notices}
           onCreateNotice={onCreateNotice}
           onOpenNotice={onOpenNotice}
+        />
+      ) : activeTab === 'assignments' ? (
+        <AssignmentListPage
+          assignments={assignments}
+          role={study.role}
+          status={assignmentDataStatus}
         />
       ) : (
         <PageScaffold activeTab={activeTab} />
