@@ -22,6 +22,12 @@ import {
   subscribeToStudyNotices,
   type NoticePayload,
 } from '../notices/noticeData';
+import {
+  createStudy,
+  subscribeToUserStudies,
+  type StudyListPayload,
+  type StudyPayload,
+} from '../studies/studyData';
 
 type AppWebViewScreenProps = {
   onOpenProfile: () => void;
@@ -40,6 +46,18 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
 
   if (value.type === 'study-selected') {
     return 'studyId' in value && typeof value.studyId === 'string';
+  }
+
+  if (value.type === 'create-study') {
+    return (
+      'name' in value &&
+      typeof value.name === 'string' &&
+      'description' in value &&
+      typeof value.description === 'string' &&
+      'memberLimit' in value &&
+      typeof value.memberLimit === 'number' &&
+      Number.isInteger(value.memberLimit)
+    );
   }
 
   if (
@@ -61,9 +79,11 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
   }
 
   return [
+    'close-create-study',
     'close-notice',
     'create-notice',
     'exit-study',
+    'open-create-study',
     'open-notifications',
     'open-profile',
   ].includes(String(value.type));
@@ -81,9 +101,27 @@ function createNoticeDataScript(
   return `window.dispatchEvent(new CustomEvent('chongchong:notices', { detail: ${detail} })); true;`;
 }
 
+function createStudyResultScript(
+  detail:
+    | { status: 'error'; message: string }
+    | { status: 'success'; study: StudyPayload },
+) {
+  const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
+  return `window.dispatchEvent(new CustomEvent('chongchong:study-create-result', { detail: ${serialized} })); true;`;
+}
+
+function createStudyListScript(
+  status: 'error' | 'ready',
+  studies: StudyListPayload[] = [],
+) {
+  const detail = JSON.stringify({ status, studies }).replaceAll('<', '\\u003c');
+  return `window.dispatchEvent(new CustomEvent('chongchong:studies', { detail: ${detail} })); true;`;
+}
+
 export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps) {
   const webViewRef = useRef<WebView>(null);
   const latestNoticesRef = useRef<NoticePayload[] | undefined>(undefined);
+  const latestStudiesRef = useRef<StudyListPayload[] | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [isStudySelected, setIsStudySelected] = useState(false);
   const [isSubpageOpen, setIsSubpageOpen] = useState(false);
@@ -103,6 +141,22 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
     setIsSubpageOpen(false);
     webViewRef.current?.injectJavaScript(createNavigationScript(tab));
   }, []);
+
+  useEffect(() => {
+    return subscribeToUserStudies(
+      user.uid,
+      (studies) => {
+        latestStudiesRef.current = studies;
+        webViewRef.current?.injectJavaScript(
+          createStudyListScript('ready', studies),
+        );
+      },
+      (error) => {
+        console.warn('Study subscription error', error);
+        webViewRef.current?.injectJavaScript(createStudyListScript('error'));
+      },
+    );
+  }, [user.uid]);
 
   useEffect(() => {
     if (!selectedStudyId) {
@@ -127,16 +181,16 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (!isStudySelected) {
-        return false;
-      }
-
       if (isSubpageOpen) {
         setIsSubpageOpen(false);
         webViewRef.current?.injectJavaScript(
-          "window.dispatchEvent(new CustomEvent('chongchong:close-notice')); true;",
+          "window.dispatchEvent(new CustomEvent('chongchong:close-subpage')); true;",
         );
         return true;
+      }
+
+      if (!isStudySelected) {
+        return false;
       }
 
       setIsStudySelected(false);
@@ -177,6 +231,43 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
 
         if (message.type === 'open-profile') {
           onOpenProfile();
+          return;
+        }
+
+        if (message.type === 'open-create-study') {
+          setIsSubpageOpen(true);
+          return;
+        }
+
+        if (message.type === 'close-create-study') {
+          setIsSubpageOpen(false);
+          return;
+        }
+
+        if (message.type === 'create-study') {
+          void createStudy({
+            description: message.description,
+            memberLimit: message.memberLimit,
+            name: message.name,
+          })
+            .then((study) => {
+              setIsStudySelected(true);
+              setIsSubpageOpen(false);
+              setSelectedStudyId(study.id);
+              setActiveTab('home');
+              webViewRef.current?.injectJavaScript(
+                createStudyResultScript({ status: 'success', study }),
+              );
+            })
+            .catch((error: unknown) => {
+              console.warn('Study creation error', error);
+              webViewRef.current?.injectJavaScript(
+                createStudyResultScript({
+                  message: '스터디를 만들지 못했어요. 잠시 후 다시 시도해 주세요.',
+                  status: 'error',
+                }),
+              );
+            });
           return;
         }
 
@@ -280,6 +371,11 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
               createNoticeDataScript('ready', latestNoticesRef.current),
             );
           }
+          if (latestStudiesRef.current) {
+            webViewRef.current?.injectJavaScript(
+              createStudyListScript('ready', latestStudiesRef.current),
+            );
+          }
         }}
         onMessage={handleMessage}
         onShouldStartLoadWithRequest={handleNavigationRequest}
@@ -310,9 +406,9 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
       />
       {isStudySelected && !isSubpageOpen ? (
         <BottomTabBar activeTab={activeTab} onTabPress={navigateToTab} />
-      ) : (
+      ) : !isSubpageOpen ? (
         <View style={styles.tabPlaceholder} />
-      )}
+      ) : null}
     </SafeAreaView>
   );
 }
