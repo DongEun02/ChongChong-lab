@@ -1,5 +1,13 @@
 export type AppTab = 'home' | 'notices' | 'assignments' | 'members';
 
+export type AssignmentAttachmentMessage = {
+  contentType: 'application/pdf';
+  name: string;
+  size: number;
+  storagePath?: string;
+  uri?: string;
+};
+
 export type WebViewMessage =
   | { type: 'close-notifications' }
   | { type: 'close-create-notice' }
@@ -49,11 +57,19 @@ export type WebViewMessage =
       studyId?: string;
     }
   | { type: 'open-profile' }
+  | { type: 'pick-assignment-attachment'; assignmentId: string }
   | { type: 'remove-study-member'; displayName: string; memberId: string }
   | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
   | { type: 'send-assignment-reminder'; assignmentId: string; memberIds: string[] }
   | { type: 'study-selected'; studyId: string }
-  | { type: 'submit-assignment'; assignmentId: string; content: string; link?: string }
+  | {
+      type: 'submit-assignment';
+      assignmentId: string;
+      attachment?: AssignmentAttachmentMessage;
+      content: string;
+      link?: string;
+      previousStoragePath?: string;
+    }
   | {
       type: 'update-notice';
       content: string;

@@ -9,8 +9,18 @@ import {
   query,
 } from '@react-native-firebase/firestore';
 import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
+import { getDownloadURL, getStorage, ref } from '@react-native-firebase/storage';
+
+export type AssignmentAttachmentPayload = {
+  contentType: 'application/pdf';
+  name: string;
+  size: number;
+  storagePath: string;
+  url: string;
+};
 
 export type AssignmentSubmissionPayload = {
+  attachment?: AssignmentAttachmentPayload;
   content: string;
   link?: string;
   submittedAt: string;
@@ -49,6 +59,7 @@ export type CreateAssignmentInput = {
 };
 
 export type SubmitAssignmentInput = {
+  attachment?: Omit<AssignmentAttachmentPayload, 'url'>;
   content: string;
   link?: string;
 };
@@ -231,7 +242,7 @@ async function loadSubmissions(
   assignmentId: string,
   userId: string,
   role: 'leader' | 'member',
-) {
+): Promise<AssignmentSubmissionPayload[]> {
   const firestore = getFirestore();
   const reference = collection(
     firestore,
@@ -244,22 +255,48 @@ async function loadSubmissions(
   const documents = role === 'leader'
     ? (await getDocs(reference)).docs
     : [await getDoc(doc(reference, userId))].filter((snapshot) => snapshot.exists());
-  return documents.flatMap((document) => {
+  const submissions = await Promise.all(documents.map(async (document) => {
     const data = document.data();
     const submittedAt = toDate(data.submittedAt);
     const updatedAt = toDate(data.updatedAt);
     if (typeof data.content !== 'string' || typeof data.userName !== 'string' || !submittedAt || !updatedAt) {
-      return [];
+      return null;
     }
-    return [{
+    const attachment = await parseAttachment(data.attachment);
+    return {
+      ...(attachment ? { attachment } : {}),
       content: data.content,
       link: typeof data.link === 'string' ? data.link : undefined,
       submittedAt: submittedAt.toISOString(),
       updatedAt: updatedAt.toISOString(),
       userId: document.id,
       userName: data.userName,
-    }];
-  });
+    };
+  }));
+  return submissions.filter((submission): submission is NonNullable<typeof submission> => submission !== null);
+}
+
+async function parseAttachment(value: unknown): Promise<AssignmentAttachmentPayload | undefined> {
+  if (
+    !isRecord(value) ||
+    value.contentType !== 'application/pdf' ||
+    typeof value.name !== 'string' ||
+    typeof value.size !== 'number' ||
+    typeof value.storagePath !== 'string'
+  ) {
+    return undefined;
+  }
+  try {
+    return {
+      contentType: 'application/pdf',
+      name: value.name,
+      size: value.size,
+      storagePath: value.storagePath,
+      url: await getDownloadURL(ref(getStorage(), value.storagePath)),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 function toDate(value: unknown): Date | null {

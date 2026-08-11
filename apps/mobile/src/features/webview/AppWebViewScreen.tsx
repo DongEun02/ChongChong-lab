@@ -1,5 +1,7 @@
 import type { User } from '@react-native-firebase/auth';
 import * as Clipboard from 'expo-clipboard';
+import * as Crypto from 'expo-crypto';
+import * as DocumentPicker from 'expo-document-picker';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -15,9 +17,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+import {
+  deleteObject,
+  getStorage,
+  putFile,
+  ref,
+} from '@react-native-firebase/storage';
 
 import { BottomTabBar } from './BottomTabBar';
-import type { AppTab, WebViewMessage } from './types';
+import type { AppTab, AssignmentAttachmentMessage, WebViewMessage } from './types';
 import {
   createAssignment,
   requestAssignmentReminder,
@@ -113,7 +121,9 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
   if (value.type === 'submit-assignment') {
     return 'assignmentId' in value && typeof value.assignmentId === 'string' &&
       'content' in value && typeof value.content === 'string' &&
-      (!('link' in value) || typeof value.link === 'string');
+      (!('link' in value) || typeof value.link === 'string') &&
+      (!('previousStoragePath' in value) || typeof value.previousStoragePath === 'string') &&
+      (!('attachment' in value) || isAssignmentAttachmentMessage(value.attachment));
   }
 
   if (value.type === 'update-notice') {
@@ -147,6 +157,10 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
   }
 
   if (value.type === 'open-assignment') {
+    return 'assignmentId' in value && typeof value.assignmentId === 'string';
+  }
+
+  if (value.type === 'pick-assignment-attachment') {
     return 'assignmentId' in value && typeof value.assignmentId === 'string';
   }
 
@@ -203,6 +217,15 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
   ].includes(String(value.type));
 }
 
+function isAssignmentAttachmentMessage(value: unknown): value is AssignmentAttachmentMessage {
+  return typeof value === 'object' && value !== null &&
+    'contentType' in value && value.contentType === 'application/pdf' &&
+    'name' in value && typeof value.name === 'string' &&
+    'size' in value && typeof value.size === 'number' &&
+    (!('storagePath' in value) || typeof value.storagePath === 'string') &&
+    (!('uri' in value) || typeof value.uri === 'string');
+}
+
 function createNavigationScript(tab: AppTab) {
   return `window.dispatchEvent(new CustomEvent('chongchong:navigate', { detail: { tab: ${JSON.stringify(tab)} } })); true;`;
 }
@@ -227,11 +250,46 @@ function createAssignmentDataScript(
 }
 
 function createAssignmentResultScript(
-  eventName: 'assignment-create-result' | 'assignment-submit-result',
+  eventName: 'assignment-attachment-result' | 'assignment-create-result' | 'assignment-submit-result',
   detail: unknown,
 ) {
   const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
   return `window.dispatchEvent(new CustomEvent('chongchong:${eventName}', { detail: ${serialized} })); true;`;
+}
+
+async function uploadAssignmentAttachment(
+  studyId: string,
+  assignmentId: string,
+  userId: string,
+  attachment: AssignmentAttachmentMessage,
+) {
+  if (!attachment.uri) {
+    if (!attachment.storagePath) {
+      throw new Error('첨부 파일 경로를 찾지 못했습니다.');
+    }
+    return {
+      contentType: 'application/pdf' as const,
+      name: attachment.name,
+      size: attachment.size,
+      storagePath: attachment.storagePath,
+    };
+  }
+  const storagePath = [
+    'assignment-submissions',
+    studyId,
+    assignmentId,
+    userId,
+    `${Crypto.randomUUID()}.pdf`,
+  ].join('/');
+  const snapshot = await putFile(ref(getStorage(), storagePath), attachment.uri, {
+    contentType: 'application/pdf',
+  });
+  return {
+    contentType: 'application/pdf' as const,
+    name: attachment.name,
+    size: snapshot.totalBytes,
+    storagePath,
+  };
 }
 
 function createStudyResultScript(
@@ -807,11 +865,73 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           return;
         }
 
+        if (message.type === 'pick-assignment-attachment') {
+          void DocumentPicker.getDocumentAsync({
+            copyToCacheDirectory: true,
+            multiple: false,
+            type: 'application/pdf',
+          }).then((result) => {
+            if (result.canceled) return;
+            const asset = result.assets[0];
+            if (!asset || (asset.mimeType && asset.mimeType !== 'application/pdf') || !asset.name.toLowerCase().endsWith('.pdf')) {
+              throw new Error('PDF 파일만 첨부할 수 있어요.');
+            }
+            if (asset.size && asset.size > 10 * 1024 * 1024) {
+              throw new Error('10MB 이하의 PDF 파일만 첨부할 수 있어요.');
+            }
+            webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-attachment-result', {
+              attachment: {
+                contentType: 'application/pdf',
+                name: asset.name,
+                size: asset.size ?? 0,
+                uri: asset.uri,
+              },
+              status: 'success',
+            }));
+          }).catch((error: unknown) => {
+            webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-attachment-result', {
+              message: error instanceof Error ? error.message : '파일을 선택하지 못했어요.',
+              status: 'error',
+            }));
+          });
+          return;
+        }
+
         if (message.type === 'submit-assignment') {
           if (!selectedStudyId) return;
-          void submitAssignment(selectedStudyId, message.assignmentId, { content: message.content, link: message.link })
-            .then((submission) => webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-submit-result', { status: 'success', submission })))
+          let uploadedStoragePath: string | undefined;
+          const attachmentPromise = message.attachment
+            ? uploadAssignmentAttachment(
+                selectedStudyId,
+                message.assignmentId,
+                user.uid,
+                message.attachment,
+              )
+            : Promise.resolve(undefined);
+          void attachmentPromise.then((attachment) => {
+            uploadedStoragePath = message.attachment?.uri
+              ? attachment?.storagePath
+              : undefined;
+            return submitAssignment(selectedStudyId, message.assignmentId, {
+              attachment: message.attachment ? attachment : undefined,
+              content: message.content,
+              link: message.link,
+            });
+          })
+            .then(async (submission) => {
+              if (
+                message.previousStoragePath &&
+                message.previousStoragePath !== message.attachment?.storagePath &&
+                message.previousStoragePath !== uploadedStoragePath
+              ) {
+                await deleteObject(ref(getStorage(), message.previousStoragePath)).catch(() => undefined);
+              }
+              webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-submit-result', { status: 'success', submission }));
+            })
             .catch((error: unknown) => {
+              if (uploadedStoragePath) {
+                void deleteObject(ref(getStorage(), uploadedStoragePath)).catch(() => undefined);
+              }
               console.warn('Assignment submission error', error);
               webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-submit-result', { message: getCallableErrorMessage(error, '과제를 제출하지 못했어요.'), status: 'error' }));
             });
@@ -932,7 +1052,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         // 타입이 지정되지 않은 WebView 메시지는 무시합니다.
       }
     },
-    [onOpenProfile, selectedStudyId],
+    [onOpenProfile, selectedStudyId, user.uid],
   );
 
   const handleNavigationRequest = useCallback(
