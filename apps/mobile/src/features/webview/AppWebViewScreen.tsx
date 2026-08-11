@@ -25,6 +25,7 @@ import {
 } from '../notices/noticeData';
 import {
   createStudy,
+  deleteStudy,
   joinStudy,
   subscribeToUserStudies,
   type StudyListPayload,
@@ -73,6 +74,10 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
 
   if (value.type === 'copy-invite-link') {
     return 'inviteUrl' in value && typeof value.inviteUrl === 'string';
+  }
+
+  if (value.type === 'delete-study') {
+    return 'studyName' in value && typeof value.studyName === 'string';
   }
 
   if (
@@ -166,6 +171,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
   const latestNoticesRef = useRef<NoticePayload[] | undefined>(undefined);
   const latestStudiesRef = useRef<StudyListPayload[] | undefined>(undefined);
   const latestMembersRef = useRef<StudyMemberPayload[] | undefined>(undefined);
+  const deletingStudyIdRef = useRef<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [isStudySelected, setIsStudySelected] = useState(false);
   const [isSubpageOpen, setIsSubpageOpen] = useState(false);
@@ -195,6 +201,8 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           selectedStudyId &&
           !studies.some((study) => study.id === selectedStudyId)
         ) {
+          const wasDeletedByCurrentUser =
+            deletingStudyIdRef.current === selectedStudyId;
           setIsStudySelected(false);
           setIsSubpageOpen(false);
           setSelectedStudyId(undefined);
@@ -202,10 +210,12 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           webViewRef.current?.injectJavaScript(
             "window.dispatchEvent(new CustomEvent('chongchong:exit-study')); true;",
           );
-          Alert.alert(
-            '스터디에서 나왔어요',
-            '리드가 회원님을 스터디 멤버에서 제외했어요.',
-          );
+          if (!wasDeletedByCurrentUser) {
+            Alert.alert(
+              '스터디 이용이 종료되었어요',
+              '리드가 멤버에서 제외했거나 스터디를 삭제했어요.',
+            );
+          }
         }
         webViewRef.current?.injectJavaScript(
           createStudyListScript('ready', studies),
@@ -433,6 +443,55 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
                 },
                 style: 'destructive',
                 text: '방출하기',
+              },
+            ],
+          );
+          return;
+        }
+
+        if (message.type === 'delete-study') {
+          if (!selectedStudyId) {
+            Alert.alert('삭제 실패', '선택한 스터디 정보를 찾지 못했어요.');
+            return;
+          }
+
+          Alert.alert(
+            '스터디를 삭제할까요?',
+            `${message.studyName}의 공지, 과제, 멤버 정보가 모두 삭제되며 되돌릴 수 없어요.`,
+            [
+              { style: 'cancel', text: '취소' },
+              {
+                onPress: () => {
+                  deletingStudyIdRef.current = selectedStudyId;
+                  void deleteStudy(selectedStudyId)
+                    .then(() => {
+                      setIsStudySelected(false);
+                      setIsSubpageOpen(false);
+                      setSelectedStudyId(undefined);
+                      setActiveTab('home');
+                      webViewRef.current?.injectJavaScript(
+                        "window.dispatchEvent(new CustomEvent('chongchong:exit-study')); true;",
+                      );
+                      deletingStudyIdRef.current = undefined;
+                      Alert.alert(
+                        '삭제 완료',
+                        `${message.studyName} 스터디를 삭제했어요.`,
+                      );
+                    })
+                    .catch((error: unknown) => {
+                      deletingStudyIdRef.current = undefined;
+                      console.warn('Study deletion error', error);
+                      Alert.alert(
+                        '삭제하지 못했어요',
+                        getCallableErrorMessage(
+                          error,
+                          '잠시 후 다시 시도해 주세요.',
+                        ),
+                      );
+                    });
+                },
+                style: 'destructive',
+                text: '삭제하기',
               },
             ],
           );

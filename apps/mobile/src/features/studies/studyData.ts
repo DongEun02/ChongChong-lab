@@ -49,6 +49,15 @@ export async function joinStudy(inviteUrl: string) {
   return response.data.study;
 }
 
+export async function deleteStudy(studyId: string) {
+  const callable = httpsCallable<
+    { studyId: string },
+    { name: string }
+  >(getFunctions(undefined, 'us-central1'), 'deleteStudy');
+  const response = await callable({ studyId });
+  return response.data;
+}
+
 export function subscribeToUserStudies(
   userId: string,
   onData: (studies: StudyListPayload[]) => void,

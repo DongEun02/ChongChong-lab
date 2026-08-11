@@ -52,6 +52,7 @@ type NativeMessage =
   | ({ type: 'create-study' } & CreateStudyInput)
   | { type: 'create-notice' }
   | { type: 'delete-notice'; noticeId: string }
+  | { type: 'delete-study'; studyName: string }
   | { type: 'edit-notice'; noticeId: string }
   | { type: 'exit-study' }
   | { type: 'join-study'; inviteUrl: string }
@@ -413,6 +414,19 @@ function App() {
     )
   }
 
+  const deleteSelectedStudy = () => {
+    if (window.ReactNativeWebView) {
+      postToNative({ studyName: selectedStudy.name, type: 'delete-study' })
+      return
+    }
+
+    setStudies((current) =>
+      current.filter((study) => study.id !== selectedStudy.id),
+    )
+    setIsStudyOpen(false)
+    setActiveTab('home')
+  }
+
   const openNotice = (noticeId: string) => {
     setSelectedNoticeId(noticeId)
     postToNative({ type: 'open-notice', noticeId })
@@ -487,6 +501,7 @@ function App() {
       study={selectedStudy}
       onBack={closeStudy}
       onCopyInviteLink={copyInviteLink}
+      onDeleteStudy={deleteSelectedStudy}
       onRemoveMember={removeMember}
       onOpenNotice={openNotice}
       onOpenNotifications={() => postToNative({ type: 'open-notifications' })}
@@ -592,6 +607,7 @@ type StudyPageProps = {
   study: StudySummary
   onBack: () => void
   onCopyInviteLink: (inviteUrl: string) => void
+  onDeleteStudy: () => void
   onRemoveMember: (member: StudyMember) => void
   onOpenNotice: (noticeId: string) => void
   onOpenNotifications: () => void
@@ -607,6 +623,7 @@ function StudyPage({
   study,
   onBack,
   onCopyInviteLink,
+  onDeleteStudy,
   onRemoveMember,
   onOpenNotice,
   onOpenNotifications,
@@ -614,11 +631,13 @@ function StudyPage({
   if (activeTab === 'members') {
     return (
       <MemberListPage
+        canDeleteStudy={study.role === 'leader'}
         canRemoveMembers={study.role === 'leader'}
         inviteUrl={`https://chongchong.app/join/${study.id}`}
         members={members}
         onBack={onBack}
         onCopyInviteLink={onCopyInviteLink}
+        onDeleteStudy={onDeleteStudy}
         onRemoveMember={onRemoveMember}
         status={memberDataStatus}
       />

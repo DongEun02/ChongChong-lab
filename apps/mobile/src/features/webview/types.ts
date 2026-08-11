@@ -13,6 +13,7 @@ export type WebViewMessage =
     }
   | { type: 'create-notice' }
   | { type: 'delete-notice'; noticeId: string }
+  | { type: 'delete-study'; studyName: string }
   | { type: 'edit-notice'; noticeId: string }
   | { type: 'exit-study' }
   | { type: 'join-study'; inviteUrl: string }
