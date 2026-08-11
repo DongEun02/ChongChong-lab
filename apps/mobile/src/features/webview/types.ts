@@ -31,4 +31,11 @@ export type WebViewMessage =
   | { type: 'open-profile' }
   | { type: 'remove-study-member'; displayName: string; memberId: string }
   | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
-  | { type: 'study-selected'; studyId: string };
+  | { type: 'study-selected'; studyId: string }
+  | {
+      type: 'update-notice';
+      content: string;
+      noticeId: string;
+      reminderAts: string[];
+      title: string;
+    };

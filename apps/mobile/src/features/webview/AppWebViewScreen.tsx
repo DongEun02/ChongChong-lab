@@ -22,6 +22,7 @@ import {
   createNotice,
   requestNoticeReminder,
   subscribeToStudyNotices,
+  updateNotice,
   type NoticePayload,
 } from '../notices/noticeData';
 import {
@@ -75,6 +76,20 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
 
   if (value.type === 'create-notice') {
     return (
+      'title' in value &&
+      typeof value.title === 'string' &&
+      'content' in value &&
+      typeof value.content === 'string' &&
+      'reminderAts' in value &&
+      Array.isArray(value.reminderAts) &&
+      value.reminderAts.every((reminderAt) => typeof reminderAt === 'string')
+    );
+  }
+
+  if (value.type === 'update-notice') {
+    return (
+      'noticeId' in value &&
+      typeof value.noticeId === 'string' &&
       'title' in value &&
       typeof value.title === 'string' &&
       'content' in value &&
@@ -171,6 +186,15 @@ function createNoticeResultScript(
 ) {
   const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
   return `window.dispatchEvent(new CustomEvent('chongchong:notice-create-result', { detail: ${serialized} })); true;`;
+}
+
+function createNoticeUpdateResultScript(
+  detail:
+    | { status: 'error'; message: string }
+    | { status: 'success'; notice: { id: string; title: string } },
+) {
+  const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
+  return `window.dispatchEvent(new CustomEvent('chongchong:notice-update-result', { detail: ${serialized} })); true;`;
 }
 
 function createStudyListScript(
@@ -569,7 +593,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         }
 
         if (message.type === 'edit-notice') {
-          Alert.alert('공지 수정', '공지 작성·수정 화면 PR에서 연결할게요.');
+          setIsSubpageOpen(true);
           return;
         }
 
@@ -607,6 +631,42 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
                   message: getCallableErrorMessage(
                     error,
                     '공지를 올리지 못했어요. 잠시 후 다시 시도해 주세요.',
+                  ),
+                  status: 'error',
+                }),
+              );
+            });
+          return;
+        }
+
+        if (message.type === 'update-notice') {
+          if (!selectedStudyId) {
+            webViewRef.current?.injectJavaScript(
+              createNoticeUpdateResultScript({
+                message: '선택한 스터디 정보를 찾지 못했어요.',
+                status: 'error',
+              }),
+            );
+            return;
+          }
+
+          void updateNotice(selectedStudyId, message.noticeId, {
+            content: message.content,
+            reminderAts: message.reminderAts,
+            title: message.title,
+          })
+            .then((notice) => {
+              webViewRef.current?.injectJavaScript(
+                createNoticeUpdateResultScript({ notice, status: 'success' }),
+              );
+            })
+            .catch((error: unknown) => {
+              console.warn('Notice update error', error);
+              webViewRef.current?.injectJavaScript(
+                createNoticeUpdateResultScript({
+                  message: getCallableErrorMessage(
+                    error,
+                    '공지를 수정하지 못했어요. 잠시 후 다시 시도해 주세요.',
                   ),
                   status: 'error',
                 }),
