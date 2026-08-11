@@ -9,6 +9,11 @@ export type UpdateNoticeRequest = CreateNoticeRequest & {
   noticeId: string;
 };
 
+export type DeleteNoticeRequest = {
+  noticeId: string;
+  studyId: string;
+};
+
 const DOCUMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const MAX_REMINDER_COUNT = 5;
 const MAX_REMINDER_DISTANCE_MS = 366 * 24 * 60 * 60 * 1000;
@@ -73,6 +78,19 @@ export function parseUpdateNoticeRequest(
   return {
     ...parseCreateNoticeRequest(value, now),
     noticeId: parseDocumentId(value.noticeId, '공지'),
+  };
+}
+
+export function parseDeleteNoticeRequest(
+  value: unknown,
+): DeleteNoticeRequest {
+  if (!isRecord(value)) {
+    throw new Error('공지 삭제 요청 형식이 올바르지 않습니다.');
+  }
+
+  return {
+    noticeId: parseDocumentId(value.noticeId, '공지'),
+    studyId: parseDocumentId(value.studyId),
   };
 }
 

@@ -16,6 +16,7 @@ import {
 } from './noticeReminders.js';
 import {
   parseCreateNoticeRequest,
+  parseDeleteNoticeRequest,
   parseUpdateNoticeRequest,
 } from './notices.js';
 import { parseReadNotificationRequest } from './notifications.js';
@@ -523,10 +524,7 @@ export const createNotice = onCall(
       });
 
       for (const member of activeMembers) {
-        if (
-          member.id === request.auth!.uid &&
-          recipientUserIds.length === 0
-        ) {
+        if (member.id === request.auth!.uid) {
           continue;
         }
         transaction.set(
@@ -629,6 +627,96 @@ export const updateNotice = onCall(
     });
 
     return { notice: { id: input.noticeId, title: input.title } };
+  },
+);
+
+export const deleteNotice = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseDeleteNoticeRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const actorReference = studyReference
+      .collection('members')
+      .doc(request.auth.uid);
+    const noticeReference = studyReference
+      .collection('notices')
+      .doc(input.noticeId);
+
+    const title = await db.runTransaction(async (transaction) => {
+      const [studySnapshot, actorSnapshot, noticeSnapshot, memberSnapshots] =
+        await Promise.all([
+          transaction.get(studyReference),
+          transaction.get(actorReference),
+          transaction.get(noticeReference),
+          transaction.get(studyReference.collection('members')),
+        ]);
+
+      if (!studySnapshot.exists || studySnapshot.get('status') !== 'active') {
+        throw new HttpsError('not-found', '스터디를 찾을 수 없습니다.');
+      }
+      if (!noticeSnapshot.exists) {
+        throw new HttpsError('not-found', '삭제할 공지를 찾을 수 없습니다.');
+      }
+      if (
+        studySnapshot.get('leaderId') !== request.auth!.uid ||
+        actorSnapshot.get('status') !== 'active' ||
+        actorSnapshot.get('role') !== 'leader'
+      ) {
+        throw new HttpsError(
+          'permission-denied',
+          '스터디 리드만 공지를 삭제할 수 있습니다.',
+        );
+      }
+
+      const rawReaders = noticeSnapshot.get('readByUserIds');
+      const readers = new Set(
+        Array.isArray(rawReaders)
+          ? rawReaders.filter(
+              (userId): userId is string => typeof userId === 'string',
+            )
+          : [],
+      );
+      for (const member of memberSnapshots.docs) {
+        if (
+          member.get('status') !== 'active' ||
+          member.get('role') === 'leader' ||
+          readers.has(member.id)
+        ) {
+          continue;
+        }
+        transaction.set(
+          db
+            .collection('users')
+            .doc(member.id)
+            .collection('studies')
+            .doc(input.studyId),
+          { unreadNotices: FieldValue.increment(-1) },
+          { merge: true },
+        );
+      }
+
+      transaction.delete(noticeReference);
+      const noticeTitle = noticeSnapshot.get('title');
+      return typeof noticeTitle === 'string' ? noticeTitle : '';
+    });
+
+    return { notice: { id: input.noticeId, title } };
   },
 );
 

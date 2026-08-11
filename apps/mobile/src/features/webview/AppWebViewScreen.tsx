@@ -20,6 +20,7 @@ import { BottomTabBar } from './BottomTabBar';
 import type { AppTab, WebViewMessage } from './types';
 import {
   createNotice,
+  deleteNotice,
   requestNoticeReminder,
   subscribeToStudyNotices,
   updateNotice,
@@ -210,6 +211,15 @@ function createNoticeUpdateResultScript(
 ) {
   const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
   return `window.dispatchEvent(new CustomEvent('chongchong:notice-update-result', { detail: ${serialized} })); true;`;
+}
+
+function createNoticeDeleteResultScript(
+  detail:
+    | { status: 'error'; message: string }
+    | { status: 'success'; notice: { id: string; title: string } },
+) {
+  const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
+  return `window.dispatchEvent(new CustomEvent('chongchong:notice-delete-result', { detail: ${serialized} })); true;`;
 }
 
 function createStudyListScript(
@@ -674,7 +684,35 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         }
 
         if (message.type === 'delete-notice') {
-          Alert.alert('공지 삭제', '실제 데이터 연결 후 삭제 확인창을 연결할게요.');
+          if (!selectedStudyId) {
+            webViewRef.current?.injectJavaScript(
+              createNoticeDeleteResultScript({
+                message: '선택한 스터디 정보를 찾지 못했어요.',
+                status: 'error',
+              }),
+            );
+            return;
+          }
+
+          void deleteNotice(selectedStudyId, message.noticeId)
+            .then((notice) => {
+              setIsSubpageOpen(false);
+              webViewRef.current?.injectJavaScript(
+                createNoticeDeleteResultScript({ notice, status: 'success' }),
+              );
+            })
+            .catch((error: unknown) => {
+              console.warn('Notice deletion error', error);
+              webViewRef.current?.injectJavaScript(
+                createNoticeDeleteResultScript({
+                  message: getCallableErrorMessage(
+                    error,
+                    '공지를 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.',
+                  ),
+                  status: 'error',
+                }),
+              );
+            });
           return;
         }
 

@@ -57,8 +57,9 @@ Firestore 규칙은 `status == active`인 스터디 멤버에게만 스터디, �
 읽기를 허용합니다. 공지 생성은 `createNotice` Callable Function이 리드 권한을
 검증하고 처리하며, 새 공지 저장과 스터디원 대상 푸시 작업 생성을 하나의
 트랜잭션으로 실행합니다. 공지 수정은 `updateNotice` Callable Function이 같은
-리드 권한을 검증하고 처리하며, 공지 삭제도 Callable Function을 통해 권한을
-검증한 뒤 처리합니다.
+리드 권한을 검증하고 처리합니다. 공지 삭제는 `deleteNotice` Callable Function이
+리드 권한과 공지 존재 여부를 확인하고, 미확인 멤버의 공지 개수를 함께
+차감한 뒤 처리합니다.
 
 ## 계정 삭제 규칙
 

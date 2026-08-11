@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import backIcon from '../../assets/figma/back.svg'
 import deleteIcon from '../../assets/figma/delete.svg'
 import editIcon from '../../assets/figma/edit.svg'
@@ -9,6 +11,8 @@ import { getRelativeTime, type NoticeDetail } from './notices'
 import './NoticeDetailPage.css'
 
 type NoticeDetailPageProps = {
+  deleteError?: string
+  isDeleting: boolean
   notice: NoticeDetail
   onBack: () => void
   onDelete: (noticeId: string) => void
@@ -17,18 +21,38 @@ type NoticeDetailPageProps = {
 }
 
 export function NoticeDetailPage({
+  deleteError,
+  isDeleting,
   notice,
   onBack,
   onDelete,
   onEdit,
   onSendReminder,
 }: NoticeDetailPageProps) {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [hasRequestedDelete, setHasRequestedDelete] = useState(false)
   const readMembers = notice.members.filter((member) => member.read)
   const unreadMembers = notice.members.filter((member) => !member.read)
   const readRatio = (readMembers.length / notice.members.length) * 100
 
   const sendReminder = (memberIds: string[]) => {
     onSendReminder(notice.id, memberIds)
+  }
+
+  const openDeleteDialog = () => {
+    setHasRequestedDelete(false)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const closeDeleteDialog = () => {
+    if (!isDeleting) {
+      setIsDeleteDialogOpen(false)
+    }
+  }
+
+  const confirmDelete = () => {
+    setHasRequestedDelete(true)
+    onDelete(notice.id)
   }
 
   return (
@@ -128,12 +152,53 @@ export function NoticeDetailPage({
             <img alt="" src={editIcon} />
             수정
           </button>
-          <button className="delete-button" onClick={() => onDelete(notice.id)} type="button">
+          <button className="delete-button" onClick={openDeleteDialog} type="button">
             <img alt="" src={deleteIcon} />
             삭제
           </button>
         </div>
       </div>
+
+      {isDeleteDialogOpen ? (
+        <div className="notice-delete-overlay">
+          <section
+            aria-describedby="notice-delete-description"
+            aria-labelledby="notice-delete-title"
+            aria-modal="true"
+            className="notice-delete-dialog"
+            role="alertdialog"
+          >
+            <div className="notice-delete-copy">
+              <h2 id="notice-delete-title">공지를 삭제할까요?</h2>
+              <p id="notice-delete-description">
+                삭제한 공지는 다시 복구할 수 없어요.<br />
+                정말 삭제하시겠어요?
+              </p>
+              {hasRequestedDelete && deleteError ? (
+                <small role="alert">{deleteError}</small>
+              ) : null}
+            </div>
+            <div className="notice-delete-actions">
+              <button
+                autoFocus
+                disabled={isDeleting}
+                onClick={closeDeleteDialog}
+                type="button"
+              >
+                취소
+              </button>
+              <button
+                className="confirm-delete"
+                disabled={isDeleting}
+                onClick={confirmDelete}
+                type="button"
+              >
+                {isDeleting ? '삭제 중...' : '삭제'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   )
 }
