@@ -8,6 +8,20 @@ export type NoticeSummary = {
   totalMemberCount: number
 }
 
+export type NoticeMember = {
+  id: string
+  lastReminderLabel?: string
+  name: string
+  read: boolean
+}
+
+export type NoticeDetail = NoticeSummary & {
+  authorName: string
+  body: string
+  members: NoticeMember[]
+  reminderAtLabel: string
+}
+
 const FIVE_HOURS = 5 * 60 * 60 * 1000
 
 export const NOTICE_SUMMARIES: NoticeSummary[] = [
@@ -40,6 +54,31 @@ export const NOTICE_SUMMARIES: NoticeSummary[] = [
     totalMemberCount: 4,
   },
 ]
+
+export const NOTICE_DETAILS: NoticeDetail[] = NOTICE_SUMMARIES.map((notice) => ({
+  ...notice,
+  authorName: '바니',
+  body:
+    notice.id === 'notice-august-operation'
+      ? `안녕하세요, 여러분!\n\n8월부터 스터디 운영 방식을 조금 바꾸려고 합니다. 끝까지 읽고 확인해 주세요.\n\n진행 방식\n매주 화요일 저녁 9시에 온라인으로 모여요. 한 명씩 돌아가며 준비한 주제를 발표하고, 발표가 끝난 뒤에는 자유롭게 질문과 의견을 나눕니다.\n\n과제 제출\n발표 자료와 과제는 모임 전날 자정까지 올려 주세요. 일정이 어려운 경우에는 미리 알려 주세요.\n\n리마인드는 설정한 시간에 아직 확인하지 않은 멤버에게만 전송됩니다. 모두 확인했다면 별도 알림은 가지 않아요.\n\n새로운 방식으로도 즐겁게 공부해 봐요!`
+      : notice.content,
+  members: [
+    { id: 'member-dium', name: '디움' },
+    { id: 'member-pizz', name: '피즈' },
+    { id: 'member-antolini', name: '안톨리니' },
+    { id: 'member-eden', name: '이든' },
+  ].map((member, index) => ({
+    ...member,
+    lastReminderLabel:
+      index < notice.readCount ? undefined : '8월 3일 21:02 보냄',
+    read: index < notice.readCount,
+  })),
+  reminderAtLabel: '1분 뒤 리마인드 · 8월 5일 21:00',
+}))
+
+export function getNoticeDetail(noticeId: string) {
+  return NOTICE_DETAILS.find((notice) => notice.id === noticeId)
+}
 
 export function getNoticePreview(content: string) {
   return Array.from(content).slice(0, 60).join('')
