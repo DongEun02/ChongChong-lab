@@ -7,12 +7,14 @@ import {
 import './NoticeListPage.css'
 
 type NoticeListPageProps = {
+  dataStatus: 'error' | 'loading' | 'ready'
   notices: NoticeSummary[]
   onCreateNotice: () => void
   onOpenNotice: (noticeId: string) => void
 }
 
 export function NoticeListPage({
+  dataStatus,
   notices,
   onCreateNotice,
   onOpenNotice,
@@ -23,6 +25,15 @@ export function NoticeListPage({
 
   return (
     <section className="notice-list-page">
+      {dataStatus === 'loading' ? (
+        <p className="notice-data-state">공지 데이터를 불러오고 있어요.</p>
+      ) : dataStatus === 'error' ? (
+        <p className="notice-data-state is-error">
+          Firestore 연결을 확인하지 못해 미리보기 데이터를 표시해요.
+        </p>
+      ) : notices.length === 0 ? (
+        <p className="notice-data-state">아직 작성된 공지가 없어요.</p>
+      ) : null}
       <div className="notice-list" aria-label="공지 목록">
         {sortedNotices.map((notice) => {
           const isAllRead = notice.readCount === notice.totalMemberCount

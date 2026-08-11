@@ -80,6 +80,80 @@ export function getNoticeDetail(noticeId: string) {
   return NOTICE_DETAILS.find((notice) => notice.id === noticeId)
 }
 
+export function parseNoticePayloads(value: unknown): NoticeDetail[] | null {
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  const notices = value.map(parseNoticePayload)
+  return notices.every((notice): notice is NoticeDetail => notice !== null)
+    ? notices
+    : null
+}
+
+function parseNoticePayload(value: unknown): NoticeDetail | null {
+  if (!isRecord(value) || !Array.isArray(value.members)) {
+    return null
+  }
+  const publishedAt = new Date(String(value.publishedAt))
+  const members = value.members.map(parseNoticeMember)
+  if (
+    !isString(value.authorName) ||
+    !isString(value.body) ||
+    !isString(value.content) ||
+    !isString(value.id) ||
+    !isString(value.reminderAtLabel) ||
+    !isString(value.title) ||
+    !Number.isFinite(publishedAt.getTime()) ||
+    !members.every((member): member is NoticeMember => member !== null)
+  ) {
+    return null
+  }
+
+  return {
+    authorName: value.authorName,
+    body: value.body,
+    content: value.content,
+    id: value.id,
+    members,
+    publishedAt,
+    readCount: members.filter((member) => member.read).length,
+    reminderAtLabel: value.reminderAtLabel,
+    reminderLabel: isString(value.reminderLabel)
+      ? value.reminderLabel
+      : undefined,
+    title: value.title,
+    totalMemberCount: members.length,
+  }
+}
+
+function parseNoticeMember(value: unknown): NoticeMember | null {
+  if (
+    !isRecord(value) ||
+    !isString(value.id) ||
+    !isString(value.name) ||
+    typeof value.read !== 'boolean'
+  ) {
+    return null
+  }
+  return {
+    id: value.id,
+    lastReminderLabel: isString(value.lastReminderLabel)
+      ? value.lastReminderLabel
+      : undefined,
+    name: value.name,
+    read: value.read,
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string'
+}
+
 export function getNoticePreview(content: string) {
   return Array.from(content).slice(0, 60).join('')
 }
