@@ -12,6 +12,7 @@ import {
 } from '@react-native-firebase/functions';
 
 export type NotificationPayload = {
+  assignmentId?: string;
   body: string;
   createdAt: string;
   id: string;
@@ -69,6 +70,7 @@ function parseNotification(
 
   const notificationData = isRecord(data.data) ? data.data : {};
   return {
+    assignmentId: parseOptionalString(notificationData.assignmentId),
     body: data.body,
     createdAt: createdAt.toISOString(),
     id,

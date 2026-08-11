@@ -9,6 +9,14 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { logger } from 'firebase-functions';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
+
+import {
+  parseAssignmentReminderRequest,
+  parseCreateAssignmentRequest,
+  parseSubmitAssignmentRequest,
+  resolveAssignmentReminderSchedule,
+} from './assignments.js';
 
 import {
   parseNoticeReminderRequest,
@@ -817,6 +825,328 @@ export const sendNoticeReminder = onCall(
     });
 
     return { jobId: jobReference.id, targetCount: recipientUserIds.length };
+  },
+);
+
+export const createAssignment = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+    let input;
+    try {
+      input = parseCreateAssignmentRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const assignmentReference = studyReference.collection('assignments').doc();
+    const notificationJobReference = db.collection('notificationJobs').doc();
+    const result = await db.runTransaction(async (transaction) => {
+      const [studySnapshot, actorSnapshot, memberSnapshots] = await Promise.all([
+        transaction.get(studyReference),
+        transaction.get(studyReference.collection('members').doc(request.auth!.uid)),
+        transaction.get(studyReference.collection('members')),
+      ]);
+      if (!studySnapshot.exists || studySnapshot.get('status') !== 'active') {
+        throw new HttpsError('not-found', '스터디를 찾을 수 없습니다.');
+      }
+      if (
+        studySnapshot.get('leaderId') !== request.auth!.uid ||
+        actorSnapshot.get('status') !== 'active' ||
+        actorSnapshot.get('role') !== 'leader'
+      ) {
+        throw new HttpsError('permission-denied', '스터디 리드만 과제를 작성할 수 있습니다.');
+      }
+
+      const members = memberSnapshots.docs.filter((member) =>
+        member.get('status') === 'active' && member.get('role') !== 'leader'
+      );
+      const reminderAts = input.reminderAts.map((date) =>
+        Timestamp.fromDate(date),
+      );
+      transaction.create(assignmentReference, {
+        authorId: request.auth!.uid,
+        content: input.content,
+        createdAt: FieldValue.serverTimestamp(),
+        deadlineAt: Timestamp.fromDate(input.deadlineAt),
+        lastReminderAtByUserId: {},
+        nextReminderAt: reminderAts[0],
+        reminderAt: reminderAts[0],
+        reminderAts,
+        submissionInstructions: input.submissionInstructions,
+        submittedByUserIds: [],
+        title: input.title,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      for (const member of members) {
+        transaction.set(
+          db.collection('users').doc(member.id).collection('studies').doc(input.studyId),
+          { pendingAssignments: FieldValue.increment(1) },
+          { merge: true },
+        );
+      }
+      if (members.length > 0) {
+        transaction.create(notificationJobReference, {
+          body: input.title,
+          createdAt: FieldValue.serverTimestamp(),
+          createdBy: request.auth!.uid,
+          data: {
+            assignmentId: assignmentReference.id,
+            screen: 'assignment-detail',
+            studyId: input.studyId,
+          },
+          recipientUserIds: members.map((member) => member.id),
+          status: 'pending',
+          title: '새 과제가 올라왔어요',
+        });
+      }
+      return { id: assignmentReference.id, title: input.title };
+    });
+    return { assignment: result };
+  },
+);
+
+export const submitAssignment = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+    let input;
+    try {
+      input = parseSubmitAssignmentRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const assignmentReference = studyReference.collection('assignments').doc(input.assignmentId);
+    const memberReference = studyReference.collection('members').doc(request.auth.uid);
+    const submissionReference = assignmentReference.collection('submissions').doc(request.auth.uid);
+    const result = await db.runTransaction(async (transaction) => {
+      const [studySnapshot, assignmentSnapshot, memberSnapshot, submissionSnapshot] = await Promise.all([
+        transaction.get(studyReference),
+        transaction.get(assignmentReference),
+        transaction.get(memberReference),
+        transaction.get(submissionReference),
+      ]);
+      if (!studySnapshot.exists || studySnapshot.get('status') !== 'active' || !assignmentSnapshot.exists) {
+        throw new HttpsError('not-found', '과제를 찾을 수 없습니다.');
+      }
+      if (memberSnapshot.get('status') !== 'active' || memberSnapshot.get('role') === 'leader') {
+        throw new HttpsError('permission-denied', '스터디원만 과제를 제출할 수 있습니다.');
+      }
+      const isFirstSubmission = !submissionSnapshot.exists;
+      const originalSubmittedAt = submissionSnapshot.get('submittedAt');
+      transaction.set(submissionReference, {
+        content: input.content,
+        link: input.link ?? null,
+        submittedAt: isFirstSubmission
+          ? FieldValue.serverTimestamp()
+          : originalSubmittedAt instanceof Timestamp
+            ? originalSubmittedAt
+            : FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        userId: request.auth!.uid,
+        userName: memberSnapshot.get('displayName') ?? '스터디원',
+      });
+      if (isFirstSubmission) {
+        transaction.update(assignmentReference, {
+          submittedByUserIds: FieldValue.arrayUnion(request.auth!.uid),
+        });
+        transaction.set(
+          db.collection('users').doc(request.auth!.uid).collection('studies').doc(input.studyId),
+          { pendingAssignments: FieldValue.increment(-1) },
+          { merge: true },
+        );
+      }
+      transaction.update(assignmentReference, {
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return { id: input.assignmentId, submittedAt: new Date().toISOString() };
+    });
+    return { submission: result };
+  },
+);
+
+export const sendAssignmentReminder = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+    let input;
+    try {
+      input = parseAssignmentReminderRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const assignmentReference = studyReference.collection('assignments').doc(input.assignmentId);
+    const [studySnapshot, assignmentSnapshot, memberSnapshots] = await Promise.all([
+      studyReference.get(),
+      assignmentReference.get(),
+      studyReference.collection('members').get(),
+    ]);
+    if (!studySnapshot.exists || !assignmentSnapshot.exists) {
+      throw new HttpsError('not-found', '과제를 찾을 수 없습니다.');
+    }
+    if (studySnapshot.get('leaderId') !== request.auth.uid) {
+      throw new HttpsError('permission-denied', '스터디 리드만 리마인드를 보낼 수 있습니다.');
+    }
+    const submittedByUserIds = assignmentSnapshot.get('submittedByUserIds');
+    const submittedIds = new Set<string>(
+      Array.isArray(submittedByUserIds)
+        ? submittedByUserIds.filter((id): id is string => typeof id === 'string')
+        : [],
+    );
+    const activeIds = new Set(memberSnapshots.docs.filter((member) =>
+      member.get('status') === 'active' && member.get('role') !== 'leader'
+    ).map((member) => member.id));
+    const recipients = input.recipientUserIds.filter((id) => activeIds.has(id) && !submittedIds.has(id));
+    if (recipients.length === 0) {
+      throw new HttpsError('failed-precondition', '리마인드를 받을 미제출 멤버가 없습니다.');
+    }
+    const jobReference = db.collection('notificationJobs').doc();
+    await db.runTransaction(async (transaction) => {
+      transaction.create(jobReference, {
+        body: assignmentSnapshot.get('title'),
+        createdAt: FieldValue.serverTimestamp(),
+        createdBy: request.auth!.uid,
+        data: { assignmentId: input.assignmentId, screen: 'assignment-detail', studyId: input.studyId },
+        recipientUserIds: recipients,
+        status: 'pending',
+        title: '제출하지 않은 과제가 있어요',
+      });
+      transaction.update(assignmentReference, Object.fromEntries(recipients.map((id) => [
+        `lastReminderAtByUserId.${id}`,
+        FieldValue.serverTimestamp(),
+      ])));
+    });
+    return { jobId: jobReference.id, targetCount: recipients.length };
+  },
+);
+
+export const deliverAssignmentReminders = onSchedule(
+  {
+    maxInstances: 1,
+    region: 'us-central1',
+    schedule: 'every 1 minutes',
+    timeZone: 'Asia/Seoul',
+    timeoutSeconds: 120,
+  },
+  async () => {
+    const now = Timestamp.now();
+    const dueAssignments = await db
+      .collectionGroup('assignments')
+      .where('nextReminderAt', '<=', now)
+      .limit(100)
+      .get();
+
+    await Promise.all(dueAssignments.docs.map(async (candidate) => {
+      const studyReference = candidate.ref.parent.parent;
+      if (!studyReference) {
+        return;
+      }
+      await db.runTransaction(async (transaction) => {
+        const [assignmentSnapshot, studySnapshot, memberSnapshots] = await Promise.all([
+          transaction.get(candidate.ref),
+          transaction.get(studyReference),
+          transaction.get(studyReference.collection('members')),
+        ]);
+        const nextReminderAt = assignmentSnapshot.get('nextReminderAt');
+        if (
+          !assignmentSnapshot.exists ||
+          !studySnapshot.exists ||
+          studySnapshot.get('status') !== 'active' ||
+          !(nextReminderAt instanceof Timestamp) ||
+          nextReminderAt.toMillis() > now.toMillis()
+        ) {
+          return;
+        }
+
+        const reminderAtsValue = assignmentSnapshot.get('reminderAts');
+        const reminderDates = Array.isArray(reminderAtsValue)
+          ? reminderAtsValue
+              .filter((value): value is Timestamp => value instanceof Timestamp)
+              .map((value) => value.toDate())
+          : [];
+        const schedule = resolveAssignmentReminderSchedule(
+          reminderDates,
+          now.toDate(),
+        );
+        const submittedByUserIds = assignmentSnapshot.get('submittedByUserIds');
+        const submittedIds = new Set<string>(
+          Array.isArray(submittedByUserIds)
+            ? submittedByUserIds.filter((id): id is string => typeof id === 'string')
+            : [],
+        );
+        const recipientUserIds = memberSnapshots.docs
+          .filter((member) =>
+            member.get('status') === 'active' &&
+            member.get('role') !== 'leader' &&
+            !submittedIds.has(member.id)
+          )
+          .map((member) => member.id);
+
+        transaction.update(candidate.ref, {
+          nextReminderAt: schedule.nextAt
+            ? Timestamp.fromDate(schedule.nextAt)
+            : FieldValue.delete(),
+          updatedAt: FieldValue.serverTimestamp(),
+          ...(recipientUserIds.length > 0
+            ? Object.fromEntries(recipientUserIds.map((id) => [
+                `lastReminderAtByUserId.${id}`,
+                FieldValue.serverTimestamp(),
+              ]))
+            : {}),
+        });
+        if (!schedule.dueAt || recipientUserIds.length === 0) {
+          return;
+        }
+
+        const title = assignmentSnapshot.get('title');
+        const jobId = [
+          'assignment',
+          studyReference.id,
+          candidate.id,
+          schedule.dueAt.getTime(),
+        ].join('-');
+        transaction.create(db.collection('notificationJobs').doc(jobId), {
+          body: typeof title === 'string' ? title : '과제를 확인해 주세요.',
+          createdAt: FieldValue.serverTimestamp(),
+          createdBy: 'scheduler',
+          data: {
+            assignmentId: candidate.id,
+            screen: 'assignment-detail',
+            studyId: studyReference.id,
+          },
+          recipientUserIds,
+          status: 'pending',
+          title: '제출하지 않은 과제가 있어요',
+        });
+      });
+    }));
   },
 );
 

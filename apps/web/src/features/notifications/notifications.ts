@@ -1,4 +1,5 @@
 export type AppNotification = {
+  assignmentId?: string
   body: string
   createdAt: string
   id: string
@@ -102,6 +103,7 @@ function parseNotification(value: unknown): AppNotification | null {
   }
 
   return {
+    assignmentId: optionalString(notification.assignmentId),
     body: notification.body,
     createdAt: notification.createdAt,
     id: notification.id,
