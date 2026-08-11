@@ -17,6 +17,11 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { BottomTabBar } from './BottomTabBar';
 import type { AppTab, WebViewMessage } from './types';
+import {
+  requestNoticeReminder,
+  subscribeToStudyNotices,
+  type NoticePayload,
+} from '../notices/noticeData';
 
 type AppWebViewScreenProps = {
   onOpenProfile: () => void;
@@ -68,11 +73,21 @@ function createNavigationScript(tab: AppTab) {
   return `window.dispatchEvent(new CustomEvent('chongchong:navigate', { detail: { tab: ${JSON.stringify(tab)} } })); true;`;
 }
 
+function createNoticeDataScript(
+  status: 'error' | 'ready',
+  notices: NoticePayload[] = [],
+) {
+  const detail = JSON.stringify({ notices, status }).replaceAll('<', '\\u003c');
+  return `window.dispatchEvent(new CustomEvent('chongchong:notices', { detail: ${detail} })); true;`;
+}
+
 export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps) {
   const webViewRef = useRef<WebView>(null);
+  const latestNoticesRef = useRef<NoticePayload[] | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [isStudySelected, setIsStudySelected] = useState(false);
   const [isSubpageOpen, setIsSubpageOpen] = useState(false);
+  const [selectedStudyId, setSelectedStudyId] = useState<string>();
   const [reloadKey, setReloadKey] = useState(0);
   const injectedSession = useMemo(() => {
     const session = JSON.stringify({ displayName: user.displayName }).replaceAll(
@@ -88,6 +103,27 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
     setIsSubpageOpen(false);
     webViewRef.current?.injectJavaScript(createNavigationScript(tab));
   }, []);
+
+  useEffect(() => {
+    if (!selectedStudyId) {
+      latestNoticesRef.current = undefined;
+      return;
+    }
+
+    return subscribeToStudyNotices(
+      selectedStudyId,
+      (notices) => {
+        latestNoticesRef.current = notices;
+        webViewRef.current?.injectJavaScript(
+          createNoticeDataScript('ready', notices),
+        );
+      },
+      (error) => {
+        console.warn('Notice subscription error', error);
+        webViewRef.current?.injectJavaScript(createNoticeDataScript('error'));
+      },
+    );
+  }, [selectedStudyId]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -126,6 +162,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         if (message.type === 'study-selected') {
           setIsStudySelected(true);
           setIsSubpageOpen(false);
+          setSelectedStudyId(message.studyId);
           setActiveTab('home');
           return;
         }
@@ -133,6 +170,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         if (message.type === 'exit-study') {
           setIsStudySelected(false);
           setIsSubpageOpen(false);
+          setSelectedStudyId(undefined);
           setActiveTab('home');
           return;
         }
@@ -153,10 +191,29 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         }
 
         if (message.type === 'send-notice-reminder') {
-          Alert.alert(
-            '리마인드 발송 준비',
-            'Firebase 공지 데이터 연결 후 실제 푸시 발송으로 이어집니다.',
-          );
+          if (!selectedStudyId) {
+            Alert.alert('발송 실패', '선택한 스터디 정보를 찾지 못했어요.');
+            return;
+          }
+
+          void requestNoticeReminder(
+            selectedStudyId,
+            message.noticeId,
+            message.memberIds,
+          )
+            .then(({ targetCount }) => {
+              Alert.alert(
+                '리마인드 발송 완료',
+                `미확인 ${targetCount}명에게 푸시 알림을 요청했어요.`,
+              );
+            })
+            .catch((error: unknown) => {
+              console.warn('Notice reminder error', error);
+              Alert.alert(
+                '리마인드를 보내지 못했어요',
+                '잠시 후 다시 시도해 주세요.',
+              );
+            });
           return;
         }
 
@@ -180,7 +237,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         // 타입이 지정되지 않은 WebView 메시지는 무시합니다.
       }
     },
-    [onOpenProfile],
+    [onOpenProfile, selectedStudyId],
   );
 
   const handleNavigationRequest = useCallback(
@@ -217,6 +274,11 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         onLoadEnd={() => {
           if (isStudySelected) {
             webViewRef.current?.injectJavaScript(createNavigationScript(activeTab));
+          }
+          if (latestNoticesRef.current) {
+            webViewRef.current?.injectJavaScript(
+              createNoticeDataScript('ready', latestNoticesRef.current),
+            );
           }
         }}
         onMessage={handleMessage}
