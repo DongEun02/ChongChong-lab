@@ -147,6 +147,15 @@ export async function updateNotice(
   return response.data.notice;
 }
 
+export async function deleteNotice(studyId: string, noticeId: string) {
+  const callable = httpsCallable<
+    { noticeId: string; studyId: string },
+    { notice: { id: string; title: string } }
+  >(getFunctions(undefined, 'us-central1'), 'deleteNotice');
+  const response = await callable({ noticeId, studyId });
+  return response.data.notice;
+}
+
 function createNoticePayload(
   notice: NoticeRecord,
   members: MemberRecord[],
