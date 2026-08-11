@@ -20,7 +20,10 @@ import {
   parseNotificationJob,
   type PushTokenTarget,
 } from './pushJobs.js';
-import { parseCreateStudyRequest } from './studies.js';
+import {
+  parseCreateStudyRequest,
+  parseJoinStudyRequest,
+} from './studies.js';
 
 if (getApps().length === 0) {
   initializeApp();
@@ -103,6 +106,132 @@ export const createStudy = onCall(
         role: 'leader',
       },
     };
+  },
+);
+
+export const joinStudy = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseJoinStudyRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const userId = request.auth.uid;
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const membersCollection = studyReference.collection('members');
+    const memberReference = membersCollection.doc(userId);
+    const userStudiesCollection = db
+      .collection('users')
+      .doc(userId)
+      .collection('studies');
+    const userStudyReference = userStudiesCollection.doc(input.studyId);
+    const displayName = parseDisplayName(
+      request.auth.token.name,
+      request.auth.token.email,
+    );
+
+    const study = await db.runTransaction(async (transaction) => {
+      const studySnapshot = await transaction.get(studyReference);
+      if (!studySnapshot.exists || studySnapshot.get('status') !== 'active') {
+        throw new HttpsError('not-found', '참여할 스터디를 찾을 수 없습니다.');
+      }
+
+      const memberSnapshot = await transaction.get(memberReference);
+      if (memberSnapshot.get('status') === 'active') {
+        throw new HttpsError('already-exists', '이미 참여 중인 스터디입니다.');
+      }
+
+      const [memberSnapshots, userStudySnapshots] = await Promise.all([
+        transaction.get(membersCollection),
+        transaction.get(userStudiesCollection),
+      ]);
+      if (!memberSnapshot.exists && userStudySnapshots.size >= 50) {
+        throw new HttpsError(
+          'resource-exhausted',
+          '참여할 수 있는 스터디는 최대 50개입니다.',
+        );
+      }
+
+      const activeMembers = memberSnapshots.docs.filter(
+        (snapshot) => snapshot.get('status') === 'active',
+      );
+      const memberLimit = studySnapshot.get('memberLimit');
+      if (
+        typeof memberLimit !== 'number' ||
+        activeMembers.length >= memberLimit
+      ) {
+        throw new HttpsError('resource-exhausted', '스터디 정원이 가득 찼습니다.');
+      }
+
+      const memberCount = activeMembers.length + 1;
+      const description = studySnapshot.get('description');
+      const name = studySnapshot.get('name');
+      if (typeof description !== 'string' || typeof name !== 'string') {
+        throw new HttpsError(
+          'failed-precondition',
+          '스터디 정보가 올바르지 않습니다.',
+        );
+      }
+
+      transaction.set(memberReference, {
+        displayName,
+        joinedAt: FieldValue.serverTimestamp(),
+        role: 'member',
+        status: 'active',
+        userId,
+      });
+      transaction.set(userStudyReference, {
+        createdAt: FieldValue.serverTimestamp(),
+        description,
+        memberCount,
+        memberLimit,
+        name,
+        pendingAssignments: 0,
+        role: 'member',
+        studyId: input.studyId,
+        unreadNotices: 0,
+      });
+      transaction.update(studyReference, {
+        memberCount,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      for (const activeMember of activeMembers) {
+        transaction.set(
+          db
+            .collection('users')
+            .doc(activeMember.id)
+            .collection('studies')
+            .doc(input.studyId),
+          { memberCount },
+          { merge: true },
+        );
+      }
+
+      return {
+        description,
+        id: input.studyId,
+        memberCount,
+        memberLimit,
+        name,
+        role: 'member' as const,
+      };
+    });
+
+    return { study };
   },
 );
 

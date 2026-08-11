@@ -4,6 +4,12 @@ export type CreateStudyRequest = {
   name: string;
 };
 
+export type JoinStudyRequest = {
+  studyId: string;
+};
+
+const DOCUMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+
 export function parseCreateStudyRequest(value: unknown): CreateStudyRequest {
   if (!isRecord(value)) {
     throw new Error('스터디 생성 요청 형식이 올바르지 않습니다.');
@@ -23,6 +29,36 @@ export function parseCreateStudyRequest(value: unknown): CreateStudyRequest {
   }
 
   return { description, memberLimit, name };
+}
+
+export function parseJoinStudyRequest(value: unknown): JoinStudyRequest {
+  if (!isRecord(value) || typeof value.inviteUrl !== 'string') {
+    throw new Error('초대 링크를 입력해 주세요.');
+  }
+
+  const rawUrl = value.inviteUrl.trim();
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(
+      rawUrl.startsWith('chongchong.app/') ? `https://${rawUrl}` : rawUrl,
+    );
+  } catch {
+    throw new Error('초대 링크 형식이 올바르지 않습니다.');
+  }
+
+  const pathSegments = parsedUrl.pathname.split('/').filter(Boolean);
+  const studyId = pathSegments[1];
+  if (
+    parsedUrl.hostname !== 'chongchong.app' ||
+    pathSegments.length !== 2 ||
+    pathSegments[0] !== 'join' ||
+    !studyId ||
+    !DOCUMENT_ID_PATTERN.test(studyId)
+  ) {
+    throw new Error('총총에서 발급된 초대 링크만 사용할 수 있습니다.');
+  }
+
+  return { studyId };
 }
 
 function parseText(

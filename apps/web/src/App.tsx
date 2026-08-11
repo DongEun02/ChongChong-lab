@@ -17,6 +17,7 @@ import {
   CreateStudyPage,
   type CreateStudyInput,
 } from './features/studies/CreateStudyPage'
+import { JoinStudyPage } from './features/studies/JoinStudyPage'
 import {
   NOTICE_DETAILS,
   parseNoticePayloads,
@@ -45,8 +46,10 @@ type NativeMessage =
   | { type: 'delete-notice'; noticeId: string }
   | { type: 'edit-notice'; noticeId: string }
   | { type: 'exit-study' }
+  | { type: 'join-study'; inviteUrl: string }
   | { type: 'open-notice'; noticeId: string }
   | { type: 'open-create-study' }
+  | { type: 'open-join-study' }
   | { type: 'open-notifications' }
   | { type: 'open-profile' }
   | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
@@ -79,6 +82,9 @@ function App() {
   const [isCreateStudyOpen, setIsCreateStudyOpen] = useState(false)
   const [isCreatingStudy, setIsCreatingStudy] = useState(false)
   const [createStudyError, setCreateStudyError] = useState<string>()
+  const [isJoinStudyOpen, setIsJoinStudyOpen] = useState(false)
+  const [isJoiningStudy, setIsJoiningStudy] = useState(false)
+  const [joinStudyError, setJoinStudyError] = useState<string>()
   const [studies, setStudies] = useState<StudySummary[]>(
     window.ReactNativeWebView ? [] : [STUDY],
   )
@@ -117,6 +123,9 @@ function App() {
       setIsCreateStudyOpen(false)
       setIsCreatingStudy(false)
       setCreateStudyError(undefined)
+      setIsJoinStudyOpen(false)
+      setIsJoiningStudy(false)
+      setJoinStudyError(undefined)
     }
     window.addEventListener('chongchong:close-subpage', handleCloseSubpage)
     const handleNotices = (event: Event) => {
@@ -157,7 +166,10 @@ function App() {
       if (detail.status === 'success' && 'study' in detail) {
         const study = parseStudySummary(detail.study)
         if (study) {
-          setStudies((current) => [study, ...current])
+          setStudies((current) => [
+            study,
+            ...current.filter((candidate) => candidate.id !== study.id),
+          ])
           setSelectedStudy(study)
           setIsCreatingStudy(false)
           setCreateStudyError(undefined)
@@ -168,6 +180,39 @@ function App() {
       }
     }
     window.addEventListener('chongchong:study-create-result', handleStudyCreateResult)
+    const handleStudyJoinResult = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) {
+        return
+      }
+
+      if (detail.status === 'error') {
+        setIsJoiningStudy(false)
+        setJoinStudyError(
+          'message' in detail && typeof detail.message === 'string'
+            ? detail.message
+            : '스터디에 참여하지 못했어요. 다시 시도해 주세요.',
+        )
+        return
+      }
+
+      if (detail.status === 'success' && 'study' in detail) {
+        const study = parseStudySummary(detail.study)
+        if (study) {
+          setStudies((current) => [
+            study,
+            ...current.filter((candidate) => candidate.id !== study.id),
+          ])
+          setSelectedStudy(study)
+          setIsJoiningStudy(false)
+          setJoinStudyError(undefined)
+          setIsJoinStudyOpen(false)
+          setIsStudyOpen(true)
+          setActiveTab('home')
+        }
+      }
+    }
+    window.addEventListener('chongchong:study-join-result', handleStudyJoinResult)
     const handleStudies = (event: Event) => {
       const detail = (event as CustomEvent<unknown>).detail
       if (!detail || typeof detail !== 'object' || !('status' in detail)) {
@@ -196,6 +241,7 @@ function App() {
       window.removeEventListener('chongchong:close-subpage', handleCloseSubpage)
       window.removeEventListener('chongchong:notices', handleNotices)
       window.removeEventListener('chongchong:study-create-result', handleStudyCreateResult)
+      window.removeEventListener('chongchong:study-join-result', handleStudyJoinResult)
       window.removeEventListener('chongchong:studies', handleStudies)
     }
   }, [])
@@ -246,6 +292,38 @@ function App() {
     )
   }
 
+  const openJoinStudy = () => {
+    setJoinStudyError(undefined)
+    setIsJoinStudyOpen(true)
+    postToNative({ type: 'open-join-study' })
+  }
+
+  const joinStudy = (inviteUrl: string) => {
+    setIsJoiningStudy(true)
+    setJoinStudyError(undefined)
+
+    if (window.ReactNativeWebView) {
+      postToNative({ inviteUrl, type: 'join-study' })
+      return
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('chongchong:study-join-result', {
+        detail: {
+          status: 'success',
+          study: {
+            description: '새로 참여한 스터디예요.',
+            id: `joined-${Date.now()}`,
+            memberCount: 2,
+            memberLimit: 5,
+            name: '총총 참여 테스트',
+            role: 'member',
+          },
+        },
+      }),
+    )
+  }
+
   const closeStudy = () => {
     setIsStudyOpen(false)
     setSelectedNoticeId(null)
@@ -273,12 +351,24 @@ function App() {
     )
   }
 
+  if (isJoinStudyOpen) {
+    return (
+      <JoinStudyPage
+        errorMessage={joinStudyError}
+        isSubmitting={isJoiningStudy}
+        onOpenProfile={() => postToNative({ type: 'open-profile' })}
+        onSubmit={joinStudy}
+      />
+    )
+  }
+
   if (!isStudyOpen) {
     return (
       <StudyList
         displayName={displayName}
         onCreateStudy={openCreateStudy}
         onOpenProfile={() => postToNative({ type: 'open-profile' })}
+        onJoinStudy={openJoinStudy}
         onOpenStudy={openStudy}
         status={studyDataStatus}
         studies={studies}
@@ -319,6 +409,7 @@ function App() {
 type StudyListProps = {
   displayName: string
   onCreateStudy: () => void
+  onJoinStudy: () => void
   onOpenProfile: () => void
   onOpenStudy: (study: StudySummary) => void
   status: StudyDataStatus
@@ -328,6 +419,7 @@ type StudyListProps = {
 function StudyList({
   displayName,
   onCreateStudy,
+  onJoinStudy,
   onOpenProfile,
   onOpenStudy,
   status,
@@ -385,7 +477,9 @@ function StudyList({
         ))}
 
         <button className="primary-button" onClick={onCreateStudy} type="button">스터디 만들기</button>
-        <button className="secondary-button" type="button">스터디 참여하기</button>
+        <button className="secondary-button" onClick={onJoinStudy} type="button">
+          스터디 참여하기
+        </button>
 
         <aside className="reminder-card">
           <img alt="" src={reminderMascot} />

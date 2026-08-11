@@ -24,6 +24,7 @@ import {
 } from '../notices/noticeData';
 import {
   createStudy,
+  joinStudy,
   subscribeToUserStudies,
   type StudyListPayload,
   type StudyPayload,
@@ -60,6 +61,10 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     );
   }
 
+  if (value.type === 'join-study') {
+    return 'inviteUrl' in value && typeof value.inviteUrl === 'string';
+  }
+
   if (
     value.type === 'open-notice' ||
     value.type === 'edit-notice' ||
@@ -84,6 +89,7 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     'create-notice',
     'exit-study',
     'open-create-study',
+    'open-join-study',
     'open-notifications',
     'open-profile',
   ].includes(String(value.type));
@@ -108,6 +114,15 @@ function createStudyResultScript(
 ) {
   const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
   return `window.dispatchEvent(new CustomEvent('chongchong:study-create-result', { detail: ${serialized} })); true;`;
+}
+
+function createStudyJoinResultScript(
+  detail:
+    | { status: 'error'; message: string }
+    | { status: 'success'; study: StudyPayload },
+) {
+  const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
+  return `window.dispatchEvent(new CustomEvent('chongchong:study-join-result', { detail: ${serialized} })); true;`;
 }
 
 function createStudyListScript(
@@ -239,6 +254,11 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           return;
         }
 
+        if (message.type === 'open-join-study') {
+          setIsSubpageOpen(true);
+          return;
+        }
+
         if (message.type === 'close-create-study') {
           setIsSubpageOpen(false);
           return;
@@ -264,6 +284,32 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
               webViewRef.current?.injectJavaScript(
                 createStudyResultScript({
                   message: '스터디를 만들지 못했어요. 잠시 후 다시 시도해 주세요.',
+                  status: 'error',
+                }),
+              );
+            });
+          return;
+        }
+
+        if (message.type === 'join-study') {
+          void joinStudy(message.inviteUrl)
+            .then((study) => {
+              setIsStudySelected(true);
+              setIsSubpageOpen(false);
+              setSelectedStudyId(study.id);
+              setActiveTab('home');
+              webViewRef.current?.injectJavaScript(
+                createStudyJoinResultScript({ status: 'success', study }),
+              );
+            })
+            .catch((error: unknown) => {
+              console.warn('Study joining error', error);
+              webViewRef.current?.injectJavaScript(
+                createStudyJoinResultScript({
+                  message: getCallableErrorMessage(
+                    error,
+                    '스터디에 참여하지 못했어요. 잠시 후 다시 시도해 주세요.',
+                  ),
                   status: 'error',
                 }),
               );
@@ -411,6 +457,24 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
       ) : null}
     </SafeAreaView>
   );
+}
+
+function getCallableErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    const message = error.message
+      .replace(/^\[functions\/[^\]]+\]\s*/, '')
+      .trim();
+    if (message.length > 0 && message.length <= 150) {
+      return message;
+    }
+  }
+
+  return fallback;
 }
 
 const styles = StyleSheet.create({
