@@ -27,6 +27,19 @@
 .my-submission, .leader-submissions { display:flex; flex-direction:column; gap:12px; margin-top:24px; }
 .my-submission h3, .leader-submissions h3 { margin:0; font-size:18px; font-weight:400; }
 .my-submission > small { color:rgba(15,23,42,.4); font-size:12px; }
+.leader-submission-list { display:flex; flex-direction:column; margin:0; padding:0; gap:8px; list-style:none; }
+.leader-submission-list button { display:flex; box-sizing:border-box; width:100%; min-height:72px; align-items:center; padding:12px 16px; border:1px solid rgba(15,23,42,.08); border-radius:12px; background:#fff; text-align:left; }
+.leader-submission-list button > img { width:20px; height:20px; margin-left:auto; opacity:.45; }
+.leader-submission-avatar, .leader-submission-profile > span { display:grid; flex:0 0 auto; width:40px; height:40px; place-items:center; border-radius:50%; background:#e8fbf3; color:#00a85d; font-size:16px; font-weight:600; }
+.leader-submission-copy { display:flex; min-width:0; flex:1; flex-direction:column; margin-left:12px; gap:3px; }
+.leader-submission-copy strong { overflow:hidden; color:#172033; font-size:15px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.leader-submission-copy small { color:rgba(15,23,42,.5); font-size:12px; line-height:18px; }
+.leader-submission-detail { display:flex; flex-direction:column; padding:24px 20px 34px; gap:12px; }
+.leader-submission-profile { display:flex; align-items:center; margin-bottom:8px; padding:4px 0 12px; }
+.leader-submission-profile > span { width:48px; height:48px; font-size:18px; }
+.leader-submission-profile div { min-width:0; margin-left:12px; }
+.leader-submission-profile h2 { margin:0; overflow:hidden; font-size:20px; line-height:28px; text-overflow:ellipsis; white-space:nowrap; }
+.leader-submission-profile small { color:rgba(15,23,42,.5); font-size:12px; line-height:18px; }
 .assignment-submit-form { display:flex; flex-direction:column; gap:16px; }
 .assignment-submit-form label { display:flex; flex-direction:column; gap:8px; font-size:16px; }
 .assignment-submit-form b { color:#00c471; font-weight:400; }

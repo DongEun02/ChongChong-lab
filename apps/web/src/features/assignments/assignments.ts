@@ -46,6 +46,14 @@ const PREVIEW_SUBMISSION: AssignmentSubmission = {
   userName: '디움',
 }
 
+const SECOND_PREVIEW_SUBMISSION: AssignmentSubmission = {
+  content: '동적 계획법 문제 세 개를 풀고 풀이와 시간 복잡도를 정리했습니다.',
+  submittedAt: new Date('2026-08-03T20:10:00+09:00'),
+  updatedAt: new Date('2026-08-03T20:10:00+09:00'),
+  userId: 'member-pizz',
+  userName: '피즈',
+}
+
 export const ASSIGNMENT_PREVIEW: AssignmentSummary[] = [
   {
     content: '백준에서 문제 푸시고 링크 올려주시면 됩니다.\n그리디 문제집에서 원하는 세 문제를 풀고 올려주세요.',
@@ -57,7 +65,7 @@ export const ASSIGNMENT_PREVIEW: AssignmentSummary[] = [
     reminderLabel: '1분 뒤 리마인드',
     submission: PREVIEW_SUBMISSION,
     submissionInstructions: 'GitHub 저장소에 문제 번호로 폴더를 만들어 올린 뒤, 저장소나 PR 링크를 제출해주세요.',
-    submissions: [PREVIEW_SUBMISSION],
+    submissions: [PREVIEW_SUBMISSION, SECOND_PREVIEW_SUBMISSION],
     submittedCount: 2,
     title: '이번주 그리디 3문제 풀이',
     totalMemberCount: 4,
@@ -71,7 +79,7 @@ export const ASSIGNMENT_PREVIEW: AssignmentSummary[] = [
     reminderAts: [new Date(Date.now() + 60_000).toISOString()],
     reminderLabel: '1분 뒤 리마인드',
     submissionInstructions: '정리 글 링크를 제출해주세요.',
-    submissions: [PREVIEW_SUBMISSION],
+    submissions: [PREVIEW_SUBMISSION, SECOND_PREVIEW_SUBMISSION],
     submittedCount: 2,
     title: '디자인 완성하고 제출하기',
     totalMemberCount: 4,
