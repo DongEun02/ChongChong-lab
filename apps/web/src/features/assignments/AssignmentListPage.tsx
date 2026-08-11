@@ -9,12 +9,16 @@ import './AssignmentListPage.css'
 
 type AssignmentListPageProps = {
   assignments: AssignmentSummary[]
+  onCreate: () => void
+  onOpen: (assignmentId: string) => void
   role: 'leader' | 'member'
   status: 'error' | 'loading' | 'ready'
 }
 
 export function AssignmentListPage({
   assignments,
+  onCreate,
+  onOpen,
   role,
   status,
 }: AssignmentListPageProps) {
@@ -32,7 +36,7 @@ export function AssignmentListPage({
 
       <div aria-label="과제 목록" className="assignment-list">
         {assignments.map((assignment) => (
-          <article className="assignment-card" key={assignment.id}>
+          <button className="assignment-card" key={assignment.id} onClick={() => onOpen(assignment.id)} type="button">
             <span className="assignment-badges">
               <span
                 className={`assignment-status ${role === 'member' && assignment.isSubmitted ? 'is-submitted' : ''}`}
@@ -61,9 +65,14 @@ export function AssignmentListPage({
               <img alt="" src={submissionLinkIcon} />
               정리 글 링크로 제출
             </span>
-          </article>
+          </button>
         ))}
       </div>
+      {role === 'leader' ? (
+        <button className="create-assignment-button" onClick={onCreate} type="button">
+          과제 추가하기
+        </button>
+      ) : null}
     </section>
   )
 }

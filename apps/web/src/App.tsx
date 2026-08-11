@@ -12,6 +12,11 @@ import membersIcon from './assets/figma/members.svg'
 import noticesIcon from './assets/figma/notices.svg'
 import reminderMascot from './assets/figma/reminder-mascot.png'
 import { AssignmentListPage } from './features/assignments/AssignmentListPage'
+import { AssignmentDetailPage } from './features/assignments/AssignmentDetailPage'
+import {
+  CreateAssignmentPage,
+  type CreateAssignmentInput,
+} from './features/assignments/CreateAssignmentPage'
 import {
   ASSIGNMENT_PREVIEW,
   parseAssignmentPayloads,
@@ -64,6 +69,8 @@ type StudySummary = {
 }
 type NativeMessage =
   | { type: 'close-notifications' }
+  | { type: 'close-assignment' }
+  | { type: 'close-create-assignment' }
   | { type: 'close-notice' }
   | { type: 'close-create-study' }
   | { type: 'close-create-notice' }
@@ -71,18 +78,22 @@ type NativeMessage =
   | { type: 'copy-invite-link'; inviteUrl: string }
   | ({ type: 'create-study' } & CreateStudyInput)
   | ({ type: 'create-notice' } & CreateNoticeInput)
+  | ({ type: 'create-assignment' } & CreateAssignmentInput)
   | { type: 'delete-notice'; noticeId: string }
   | { type: 'delete-study'; studyName: string }
   | { type: 'edit-notice'; noticeId: string }
   | { type: 'exit-study' }
   | { type: 'join-study'; inviteUrl: string }
   | { type: 'open-notice'; noticeId: string }
+  | { type: 'open-assignment'; assignmentId: string }
+  | { type: 'open-create-assignment' }
   | { type: 'open-create-study' }
   | { type: 'open-create-notice' }
   | { type: 'open-join-study' }
   | { type: 'open-notifications' }
   | {
       type: 'open-notification'
+      assignmentId?: string
       notificationId: string
       noticeId?: string
       studyId?: string
@@ -90,7 +101,9 @@ type NativeMessage =
   | { type: 'open-profile' }
   | { type: 'remove-study-member'; displayName: string; memberId: string }
   | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
+  | { type: 'send-assignment-reminder'; assignmentId: string; memberIds: string[] }
   | { type: 'study-selected'; studyId: string }
+  | { type: 'submit-assignment'; assignmentId: string; content: string; link?: string }
   | ({ type: 'update-notice'; noticeId: string } & CreateNoticeInput)
 
 declare global {
@@ -129,7 +142,7 @@ function postToNative(message: NativeMessage) {
 
 function App() {
   const [isStudyOpen, setIsStudyOpen] = useState(
-    PAGE_PREVIEW === 'assignments' || PAGE_PREVIEW === 'delete-notice',
+    ['assignments', 'assignment-detail', 'assignment-submit', 'create-assignment', 'delete-notice'].includes(PAGE_PREVIEW ?? ''),
   )
   const [isCreateStudyOpen, setIsCreateStudyOpen] = useState(false)
   const [isCreatingStudy, setIsCreatingStudy] = useState(false)
@@ -163,9 +176,11 @@ function App() {
   const [studyDataStatus, setStudyDataStatus] = useState<StudyDataStatus>(
     window.ReactNativeWebView ? 'loading' : 'ready',
   )
-  const [selectedStudy, setSelectedStudy] = useState<StudySummary>(STUDY)
+  const [selectedStudy, setSelectedStudy] = useState<StudySummary>(
+    PAGE_PREVIEW === 'assignment-submit' ? { ...STUDY, role: 'member' } : STUDY,
+  )
   const [activeTab, setActiveTab] = useState<TabId>(
-    PAGE_PREVIEW === 'assignments' ? 'assignments' : 'home',
+    PAGE_PREVIEW?.startsWith('assignment') || PAGE_PREVIEW === 'create-assignment' ? 'assignments' : 'home',
   )
   const [selectedNoticeId, setSelectedNoticeId] = useState<string | null>(
     PAGE_PREVIEW === 'delete-notice' ? NOTICE_DETAILS[0]?.id ?? null : null,
@@ -183,6 +198,16 @@ function App() {
     useState<AssignmentDataStatus>(
       window.ReactNativeWebView ? 'loading' : 'ready',
     )
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(
+    PAGE_PREVIEW === 'assignment-detail'
+      ? ASSIGNMENT_PREVIEW[0]?.id ?? null
+      : PAGE_PREVIEW === 'assignment-submit'
+        ? ASSIGNMENT_PREVIEW[1]?.id ?? null
+        : null,
+  )
+  const [isCreateAssignmentOpen, setIsCreateAssignmentOpen] = useState(PAGE_PREVIEW === 'create-assignment')
+  const [isSavingAssignment, setIsSavingAssignment] = useState(false)
+  const [assignmentActionError, setAssignmentActionError] = useState<string>()
   const [members, setMembers] = useState<StudyMember[]>(
     window.ReactNativeWebView ? [] : PREVIEW_MEMBERS,
   )
@@ -199,6 +224,7 @@ function App() {
         setIsStudyOpen(true)
         setActiveTab(detail.tab)
         setSelectedNoticeId(null)
+        setSelectedAssignmentId(null)
       }
     }
 
@@ -209,6 +235,10 @@ function App() {
     window.addEventListener('chongchong:close-notice', handleCloseNotice)
     const handleCloseSubpage = () => {
       setSelectedNoticeId(null)
+      setSelectedAssignmentId(null)
+      setIsCreateAssignmentOpen(false)
+      setIsSavingAssignment(false)
+      setAssignmentActionError(undefined)
       setIsCreateStudyOpen(false)
       setIsCreatingStudy(false)
       setCreateStudyError(undefined)
@@ -263,6 +293,32 @@ function App() {
       }
     }
     window.addEventListener('chongchong:assignments', handleAssignments)
+    const handleAssignmentCreateResult = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) return
+      if (detail.status === 'error') {
+        setIsSavingAssignment(false)
+        setAssignmentActionError('message' in detail && typeof detail.message === 'string' ? detail.message : '과제를 올리지 못했어요.')
+        return
+      }
+      setIsSavingAssignment(false)
+      setAssignmentActionError(undefined)
+      setIsCreateAssignmentOpen(false)
+      setActiveTab('assignments')
+    }
+    const handleAssignmentSubmitResult = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) return
+      if (detail.status === 'error') {
+        setIsSavingAssignment(false)
+        setAssignmentActionError('message' in detail && typeof detail.message === 'string' ? detail.message : '과제를 제출하지 못했어요.')
+        return
+      }
+      setIsSavingAssignment(false)
+      setAssignmentActionError(undefined)
+    }
+    window.addEventListener('chongchong:assignment-create-result', handleAssignmentCreateResult)
+    window.addEventListener('chongchong:assignment-submit-result', handleAssignmentSubmitResult)
     const handleStudyCreateResult = (event: Event) => {
       const detail = (event as CustomEvent<unknown>).detail
       if (!detail || typeof detail !== 'object' || !('status' in detail)) {
@@ -484,6 +540,8 @@ function App() {
       window.removeEventListener('chongchong:close-subpage', handleCloseSubpage)
       window.removeEventListener('chongchong:notices', handleNotices)
       window.removeEventListener('chongchong:assignments', handleAssignments)
+      window.removeEventListener('chongchong:assignment-create-result', handleAssignmentCreateResult)
+      window.removeEventListener('chongchong:assignment-submit-result', handleAssignmentSubmitResult)
       window.removeEventListener('chongchong:study-create-result', handleStudyCreateResult)
       window.removeEventListener('chongchong:study-join-result', handleStudyJoinResult)
       window.removeEventListener('chongchong:notice-create-result', handleNoticeCreateResult)
@@ -591,6 +649,72 @@ function App() {
     setEditingNoticeId(undefined)
     setIsCreateNoticeOpen(true)
     postToNative({ type: 'open-create-notice' })
+  }
+
+  const openCreateAssignment = () => {
+    setAssignmentActionError(undefined)
+    setIsCreateAssignmentOpen(true)
+    postToNative({ type: 'open-create-assignment' })
+  }
+
+  const closeCreateAssignment = () => {
+    if (isSavingAssignment) return
+    setIsCreateAssignmentOpen(false)
+    setAssignmentActionError(undefined)
+    postToNative({ type: 'close-create-assignment' })
+  }
+
+  const createAssignment = (input: CreateAssignmentInput) => {
+    setIsSavingAssignment(true)
+    setAssignmentActionError(undefined)
+    if (window.ReactNativeWebView) {
+      postToNative({ ...input, type: 'create-assignment' })
+      return
+    }
+    const assignment = {
+      ...ASSIGNMENT_PREVIEW[0],
+      ...input,
+      deadlineAt: new Date(input.deadlineAt),
+      id: `preview-assignment-${Date.now()}`,
+      isSubmitted: false,
+      submission: undefined,
+      submissions: [],
+      submittedCount: 0,
+    }
+    setAssignments((current) => [assignment, ...current])
+    setIsSavingAssignment(false)
+    setIsCreateAssignmentOpen(false)
+    setActiveTab('assignments')
+  }
+
+  const openAssignment = (assignmentId: string) => {
+    setSelectedAssignmentId(assignmentId)
+    setAssignmentActionError(undefined)
+    postToNative({ assignmentId, type: 'open-assignment' })
+  }
+
+  const closeAssignment = () => {
+    if (isSavingAssignment) return
+    setSelectedAssignmentId(null)
+    setAssignmentActionError(undefined)
+    postToNative({ type: 'close-assignment' })
+  }
+
+  const submitSelectedAssignment = (content: string, link?: string) => {
+    if (!selectedAssignmentId) return
+    setIsSavingAssignment(true)
+    setAssignmentActionError(undefined)
+    if (window.ReactNativeWebView) {
+      postToNative({ assignmentId: selectedAssignmentId, content, link, type: 'submit-assignment' })
+      return
+    }
+    const submittedAt = new Date()
+    setAssignments((current) => current.map((assignment) => assignment.id === selectedAssignmentId ? {
+      ...assignment,
+      isSubmitted: true,
+      submission: { content, link, submittedAt, updatedAt: submittedAt, userId: 'preview-member', userName: displayName },
+    } : assignment))
+    setIsSavingAssignment(false)
   }
 
   const closeCreateNotice = () => {
@@ -733,13 +857,17 @@ function App() {
       ),
     )
     postToNative({
+      assignmentId: notification.assignmentId,
       notificationId: notification.id,
       noticeId: notification.noticeId,
       studyId: notification.studyId,
       type: 'open-notification',
     })
 
-    if (!notification.studyId || !notification.noticeId) {
+    if (
+      !notification.studyId ||
+      (!notification.noticeId && !notification.assignmentId)
+    ) {
       return
     }
     const targetStudy = studies.find(
@@ -752,8 +880,15 @@ function App() {
     setSelectedStudy(targetStudy)
     setIsStudyOpen(true)
     setIsNotificationsOpen(false)
-    setActiveTab('notices')
-    setSelectedNoticeId(notification.noticeId)
+    if (notification.assignmentId) {
+      setActiveTab('assignments')
+      setSelectedAssignmentId(notification.assignmentId)
+      setSelectedNoticeId(null)
+    } else if (notification.noticeId) {
+      setActiveTab('notices')
+      setSelectedNoticeId(notification.noticeId)
+      setSelectedAssignmentId(null)
+    }
   }
 
   const deleteNotice = (noticeId: string) => {
@@ -794,6 +929,17 @@ function App() {
         onBack={closeJoinStudy}
         onOpenProfile={() => postToNative({ type: 'open-profile' })}
         onSubmit={joinStudy}
+      />
+    )
+  }
+
+  if (isCreateAssignmentOpen) {
+    return (
+      <CreateAssignmentPage
+        errorMessage={assignmentActionError}
+        isSubmitting={isSavingAssignment}
+        onBack={closeCreateAssignment}
+        onSubmit={createAssignment}
       />
     )
   }
@@ -850,6 +996,22 @@ function App() {
   }
 
   const selectedNotice = notices.find((notice) => notice.id === selectedNoticeId)
+  const selectedAssignment = assignments.find((assignment) => assignment.id === selectedAssignmentId)
+
+  if (selectedAssignment) {
+    return (
+      <AssignmentDetailPage
+        assignment={selectedAssignment}
+        errorMessage={assignmentActionError}
+        isSubmitting={isSavingAssignment}
+        key={`${selectedAssignment.id}-${selectedAssignment.submission?.updatedAt.getTime() ?? 'pending'}`}
+        onBack={closeAssignment}
+        onReminder={(memberIds) => postToNative({ assignmentId: selectedAssignment.id, memberIds, type: 'send-assignment-reminder' })}
+        onSubmit={submitSelectedAssignment}
+        role={selectedStudy.role}
+      />
+    )
+  }
 
   if (selectedNotice) {
     return (
@@ -884,6 +1046,8 @@ function App() {
       onRemoveMember={removeMember}
       onOpenNotice={openNotice}
       onCreateNotice={openCreateNotice}
+      onCreateAssignment={openCreateAssignment}
+      onOpenAssignment={openAssignment}
       onOpenNotifications={openNotifications}
     />
   )
@@ -993,6 +1157,8 @@ type StudyPageProps = {
   onRemoveMember: (member: StudyMember) => void
   onOpenNotice: (noticeId: string) => void
   onCreateNotice: () => void
+  onCreateAssignment: () => void
+  onOpenAssignment: (assignmentId: string) => void
   onOpenNotifications: () => void
 }
 
@@ -1012,6 +1178,8 @@ function StudyPage({
   onRemoveMember,
   onOpenNotice,
   onCreateNotice,
+  onCreateAssignment,
+  onOpenAssignment,
   onOpenNotifications,
 }: StudyPageProps) {
   if (activeTab === 'members') {
@@ -1059,6 +1227,8 @@ function StudyPage({
       ) : activeTab === 'assignments' ? (
         <AssignmentListPage
           assignments={assignments}
+          onCreate={onCreateAssignment}
+          onOpen={onOpenAssignment}
           role={study.role}
           status={assignmentDataStatus}
         />
