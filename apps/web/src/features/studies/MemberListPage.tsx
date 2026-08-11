@@ -8,20 +8,24 @@ import './MemberListPage.css'
 
 type MemberListPageProps = {
   canRemoveMembers: boolean
+  canDeleteStudy: boolean
   inviteUrl: string
   members: StudyMember[]
   onBack: () => void
   onCopyInviteLink: (inviteUrl: string) => void
+  onDeleteStudy: () => void
   onRemoveMember: (member: StudyMember) => void
   status: 'error' | 'loading' | 'ready'
 }
 
 export function MemberListPage({
   canRemoveMembers,
+  canDeleteStudy,
   inviteUrl,
   members,
   onBack,
   onCopyInviteLink,
+  onDeleteStudy,
   onRemoveMember,
   status,
 }: MemberListPageProps) {
@@ -102,6 +106,16 @@ export function MemberListPage({
             <img alt="" src={clipboardIcon} />
           </button>
         </div>
+
+        {canDeleteStudy ? (
+          <button
+            className="delete-study-button"
+            onClick={onDeleteStudy}
+            type="button"
+          >
+            스터디 삭제하기
+          </button>
+        ) : null}
       </section>
     </main>
   )

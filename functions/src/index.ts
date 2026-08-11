@@ -22,6 +22,7 @@ import {
 } from './pushJobs.js';
 import {
   parseCreateStudyRequest,
+  parseDeleteStudyRequest,
   parseJoinStudyRequest,
   parseRemoveStudyMemberRequest,
 } from './studies.js';
@@ -348,6 +349,90 @@ export const removeStudyMember = onCall(
     });
 
     return result;
+  },
+);
+
+export const deleteStudy = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 5,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 540,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseDeleteStudyRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const actorReference = studyReference
+      .collection('members')
+      .doc(request.auth.uid);
+
+    const studyName = await db.runTransaction(async (transaction) => {
+      const [studySnapshot, actorSnapshot] = await Promise.all([
+        transaction.get(studyReference),
+        transaction.get(actorReference),
+      ]);
+      if (!studySnapshot.exists) {
+        throw new HttpsError('not-found', '삭제할 스터디를 찾을 수 없습니다.');
+      }
+      const status = studySnapshot.get('status');
+      if (status !== 'active' && status !== 'deleting') {
+        throw new HttpsError('not-found', '삭제할 스터디를 찾을 수 없습니다.');
+      }
+      if (
+        studySnapshot.get('leaderId') !== request.auth!.uid ||
+        actorSnapshot.get('status') !== 'active' ||
+        actorSnapshot.get('role') !== 'leader'
+      ) {
+        throw new HttpsError(
+          'permission-denied',
+          '스터디 리드만 스터디를 삭제할 수 있습니다.',
+        );
+      }
+
+      const name = studySnapshot.get('name');
+      if (typeof name !== 'string') {
+        throw new HttpsError(
+          'failed-precondition',
+          '스터디 정보가 올바르지 않습니다.',
+        );
+      }
+
+      if (status === 'active') {
+        transaction.update(studyReference, {
+          deletingAt: FieldValue.serverTimestamp(),
+          deletingBy: request.auth!.uid,
+          status: 'deleting',
+        });
+      }
+
+      return name;
+    });
+
+    const userStudySnapshots = await db
+      .collectionGroup('studies')
+      .where('studyId', '==', input.studyId)
+      .get();
+
+    await db.recursiveDelete(studyReference);
+
+    const bulkWriter = db.bulkWriter();
+    for (const userStudySnapshot of userStudySnapshots.docs) {
+      bulkWriter.delete(userStudySnapshot.ref);
+    }
+    await bulkWriter.close();
+
+    return { name: studyName };
   },
 );
 

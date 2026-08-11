@@ -13,6 +13,10 @@ export type RemoveStudyMemberRequest = {
   studyId: string;
 };
 
+export type DeleteStudyRequest = {
+  studyId: string;
+};
+
 const DOCUMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 export function parseCreateStudyRequest(value: unknown): CreateStudyRequest {
@@ -77,6 +81,14 @@ export function parseRemoveStudyMemberRequest(
     memberId: parseDocumentId(value.memberId, '멤버'),
     studyId: parseDocumentId(value.studyId, '스터디'),
   };
+}
+
+export function parseDeleteStudyRequest(value: unknown): DeleteStudyRequest {
+  if (!isRecord(value)) {
+    throw new Error('스터디 삭제 요청 형식이 올바르지 않습니다.');
+  }
+
+  return { studyId: parseDocumentId(value.studyId, '스터디') };
 }
 
 function parseDocumentId(value: unknown, label: string) {

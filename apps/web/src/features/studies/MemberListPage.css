@@ -151,3 +151,17 @@
   height: 24px;
   margin-left: 12px;
 }
+
+.delete-study-button {
+  width: 100%;
+  height: 52px;
+  margin-top: 20px;
+  border: 0;
+  border-radius: 12px;
+  background: #de5e56;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+}

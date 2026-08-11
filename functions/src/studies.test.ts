@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   parseCreateStudyRequest,
+  parseDeleteStudyRequest,
   parseJoinStudyRequest,
   parseRemoveStudyMemberRequest,
 } from './studies.js';
@@ -87,5 +88,15 @@ test('parseRemoveStudyMemberRequest은 스터디와 멤버 ID를 검증한다', 
         studyId: 'study-1',
       }),
     /멤버 정보가 올바르지/,
+  );
+});
+
+test('parseDeleteStudyRequest은 스터디 ID를 검증한다', () => {
+  assert.deepEqual(parseDeleteStudyRequest({ studyId: 'study-1' }), {
+    studyId: 'study-1',
+  });
+  assert.throws(
+    () => parseDeleteStudyRequest({ studyId: 'studies/study-1' }),
+    /스터디 정보가 올바르지/,
   );
 });
