@@ -14,7 +14,10 @@ import {
   parseNoticeReminderRequest,
   resolveUnreadRecipients,
 } from './noticeReminders.js';
-import { parseCreateNoticeRequest } from './notices.js';
+import {
+  parseCreateNoticeRequest,
+  parseUpdateNoticeRequest,
+} from './notices.js';
 
 import {
   chunkTargets,
@@ -556,6 +559,75 @@ export const createNotice = onCall(
     });
 
     return { notice: result };
+  },
+);
+
+export const updateNotice = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseUpdateNoticeRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const actorReference = studyReference
+      .collection('members')
+      .doc(request.auth.uid);
+    const noticeReference = studyReference
+      .collection('notices')
+      .doc(input.noticeId);
+
+    await db.runTransaction(async (transaction) => {
+      const [studySnapshot, actorSnapshot, noticeSnapshot] = await Promise.all([
+        transaction.get(studyReference),
+        transaction.get(actorReference),
+        transaction.get(noticeReference),
+      ]);
+
+      if (!studySnapshot.exists || studySnapshot.get('status') !== 'active') {
+        throw new HttpsError('not-found', '스터디를 찾을 수 없습니다.');
+      }
+      if (!noticeSnapshot.exists) {
+        throw new HttpsError('not-found', '수정할 공지를 찾을 수 없습니다.');
+      }
+      if (
+        studySnapshot.get('leaderId') !== request.auth!.uid ||
+        actorSnapshot.get('status') !== 'active' ||
+        actorSnapshot.get('role') !== 'leader'
+      ) {
+        throw new HttpsError(
+          'permission-denied',
+          '스터디 리드만 공지를 수정할 수 있습니다.',
+        );
+      }
+
+      const reminderAts = input.reminderAts.map((date) =>
+        Timestamp.fromDate(date),
+      );
+      transaction.update(noticeReference, {
+        content: input.content,
+        nextReminderAt: reminderAts[0],
+        reminderAt: reminderAts[0],
+        reminderAts,
+        title: input.title,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    });
+
+    return { notice: { id: input.noticeId, title: input.title } };
   },
 );
 

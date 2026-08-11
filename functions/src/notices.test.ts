@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseCreateNoticeRequest } from './notices.js';
+import {
+  parseCreateNoticeRequest,
+  parseUpdateNoticeRequest,
+} from './notices.js';
 
 const NOW = new Date('2026-08-11T00:00:00.000Z');
 
@@ -89,5 +92,41 @@ test('parseCreateNoticeRequest은 필수값과 길이를 검증한다', () => {
         NOW,
       ),
     /스터디 정보/,
+  );
+});
+
+test('parseUpdateNoticeRequest은 공지 ID와 수정 내용을 검증한다', () => {
+  assert.deepEqual(
+    parseUpdateNoticeRequest(
+      {
+        content: '수정 내용',
+        noticeId: 'notice-1',
+        reminderAts: ['2026-08-11T01:00:00.000Z'],
+        studyId: 'study-1',
+        title: '수정 제목',
+      },
+      NOW,
+    ),
+    {
+      content: '수정 내용',
+      noticeId: 'notice-1',
+      reminderAts: [new Date('2026-08-11T01:00:00.000Z')],
+      studyId: 'study-1',
+      title: '수정 제목',
+    },
+  );
+  assert.throws(
+    () =>
+      parseUpdateNoticeRequest(
+        {
+          content: '수정 내용',
+          noticeId: 'notices/notice-1',
+          reminderAts: ['2026-08-11T01:00:00.000Z'],
+          studyId: 'study-1',
+          title: '수정 제목',
+        },
+        NOW,
+      ),
+    /공지 정보/,
   );
 });

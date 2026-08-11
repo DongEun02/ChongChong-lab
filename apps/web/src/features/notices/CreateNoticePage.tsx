@@ -13,7 +13,9 @@ export type CreateNoticeInput = {
 
 type CreateNoticePageProps = {
   errorMessage?: string
+  initialValue?: CreateNoticeInput
   isSubmitting: boolean
+  mode?: 'create' | 'edit'
   onBack: () => void
   onSubmit: (input: CreateNoticeInput) => void
 }
@@ -22,13 +24,20 @@ const MAX_REMINDER_COUNT = 5
 
 export function CreateNoticePage({
   errorMessage,
+  initialValue,
   isSubmitting,
+  mode = 'create',
   onBack,
   onSubmit,
 }: CreateNoticePageProps) {
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [reminderValues, setReminderValues] = useState([''])
+  const [title, setTitle] = useState(initialValue?.title ?? '')
+  const [content, setContent] = useState(initialValue?.content ?? '')
+  const [reminderValues, setReminderValues] = useState(() => {
+    const futureReminders = (initialValue?.reminderAts ?? [])
+      .filter((value) => new Date(value) > new Date())
+      .map((value) => toLocalDateTime(new Date(value)))
+    return futureReminders.length > 0 ? futureReminders : ['']
+  })
   const [minimumReminderValue] = useState(() => toLocalDateTime(new Date()))
   const areRemindersValid = reminderValues.every((value) => {
     const date = new Date(value)
@@ -149,7 +158,9 @@ export function CreateNoticePage({
         {errorMessage ? <p className="create-notice-error">{errorMessage}</p> : null}
 
         <button className="create-notice-submit" disabled={!canSubmit} type="submit">
-          {isSubmitting ? '올리는 중...' : '공지 올리기'}
+          {isSubmitting
+            ? mode === 'edit' ? '수정하는 중...' : '올리는 중...'
+            : mode === 'edit' ? '공지 수정하기' : '공지 올리기'}
         </button>
       </form>
     </main>

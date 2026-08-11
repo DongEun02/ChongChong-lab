@@ -24,6 +24,7 @@ export type NoticePayload = {
   publishedAt: string;
   readCount: number;
   reminderAtLabel: string;
+  reminderAts: string[];
   reminderLabel?: string;
   title: string;
   totalMemberCount: number;
@@ -48,6 +49,7 @@ type NoticeRecord = {
   publishedAt: Date;
   readByUserIds: string[];
   reminderAt?: Date;
+  reminderAts: Date[];
   title: string;
 };
 
@@ -132,6 +134,19 @@ export async function createNotice(
   return response.data.notice;
 }
 
+export async function updateNotice(
+  studyId: string,
+  noticeId: string,
+  input: CreateNoticeInput,
+) {
+  const callable = httpsCallable<
+    CreateNoticeInput & { noticeId: string; studyId: string },
+    { notice: { id: string; title: string } }
+  >(getFunctions(undefined, 'us-central1'), 'updateNotice');
+  const response = await callable({ ...input, noticeId, studyId });
+  return response.data.notice;
+}
+
 function createNoticePayload(
   notice: NoticeRecord,
   members: MemberRecord[],
@@ -155,6 +170,7 @@ function createNoticePayload(
     publishedAt: notice.publishedAt.toISOString(),
     readCount,
     reminderAtLabel: formatReminderAt(notice.reminderAt),
+    reminderAts: notice.reminderAts.map((date) => date.toISOString()),
     reminderLabel: notice.reminderAt
       ? formatRemainingTime(notice.reminderAt)
       : undefined,
@@ -190,6 +206,15 @@ function parseNoticeRecord(
       return date ? [[userId, date]] : [];
     }),
   );
+  const reminderAt = toDate(data.reminderAt) ?? undefined;
+  const reminderAts = Array.isArray(data.reminderAts)
+    ? data.reminderAts.flatMap((value) => {
+        const date = toDate(value);
+        return date ? [date] : [];
+      })
+    : reminderAt
+      ? [reminderAt]
+      : [];
 
   return {
     authorName:
@@ -199,7 +224,8 @@ function parseNoticeRecord(
     lastReminderAtByUserId,
     publishedAt,
     readByUserIds: rawReaders,
-    reminderAt: toDate(data.reminderAt) ?? undefined,
+    reminderAt,
+    reminderAts,
     title: data.title,
   };
 }

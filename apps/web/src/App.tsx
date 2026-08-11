@@ -70,6 +70,7 @@ type NativeMessage =
   | { type: 'remove-study-member'; displayName: string; memberId: string }
   | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
   | { type: 'study-selected'; studyId: string }
+  | ({ type: 'update-notice'; noticeId: string } & CreateNoticeInput)
 
 declare global {
   interface Window {
@@ -97,9 +98,9 @@ const PREVIEW_MEMBERS: StudyMember[] = [
   { displayName: '정총총', id: 'preview-member-4', role: 'member' },
 ]
 
-const IS_CREATE_NOTICE_PREVIEW =
-  import.meta.env.DEV &&
-  new URLSearchParams(window.location.search).get('preview') === 'create-notice'
+const NOTICE_FORM_PREVIEW = import.meta.env.DEV
+  ? new URLSearchParams(window.location.search).get('preview')
+  : null
 
 function postToNative(message: NativeMessage) {
   window.ReactNativeWebView?.postMessage(JSON.stringify(message))
@@ -114,10 +115,13 @@ function App() {
   const [isJoiningStudy, setIsJoiningStudy] = useState(false)
   const [joinStudyError, setJoinStudyError] = useState<string>()
   const [isCreateNoticeOpen, setIsCreateNoticeOpen] = useState(
-    IS_CREATE_NOTICE_PREVIEW,
+    NOTICE_FORM_PREVIEW === 'create-notice' || NOTICE_FORM_PREVIEW === 'edit-notice',
   )
   const [isCreatingNotice, setIsCreatingNotice] = useState(false)
   const [createNoticeError, setCreateNoticeError] = useState<string>()
+  const [editingNoticeId, setEditingNoticeId] = useState<string | undefined>(
+    NOTICE_FORM_PREVIEW === 'edit-notice' ? NOTICE_DETAILS[0]?.id : undefined,
+  )
   const [studies, setStudies] = useState<StudySummary[]>(
     window.ReactNativeWebView ? [] : [STUDY],
   )
@@ -168,6 +172,7 @@ function App() {
       setIsCreateNoticeOpen(false)
       setIsCreatingNotice(false)
       setCreateNoticeError(undefined)
+      setEditingNoticeId(undefined)
     }
     window.addEventListener('chongchong:close-subpage', handleCloseSubpage)
     const handleNotices = (event: Event) => {
@@ -283,6 +288,30 @@ function App() {
       }
     }
     window.addEventListener('chongchong:notice-create-result', handleNoticeCreateResult)
+    const handleNoticeUpdateResult = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) {
+        return
+      }
+
+      if (detail.status === 'error') {
+        setIsCreatingNotice(false)
+        setCreateNoticeError(
+          'message' in detail && typeof detail.message === 'string'
+            ? detail.message
+            : '공지를 수정하지 못했어요. 다시 시도해 주세요.',
+        )
+        return
+      }
+
+      if (detail.status === 'success') {
+        setIsCreatingNotice(false)
+        setCreateNoticeError(undefined)
+        setIsCreateNoticeOpen(false)
+        setEditingNoticeId(undefined)
+      }
+    }
+    window.addEventListener('chongchong:notice-update-result', handleNoticeUpdateResult)
     const handleStudies = (event: Event) => {
       const detail = (event as CustomEvent<unknown>).detail
       if (!detail || typeof detail !== 'object' || !('status' in detail)) {
@@ -333,6 +362,7 @@ function App() {
       window.removeEventListener('chongchong:study-create-result', handleStudyCreateResult)
       window.removeEventListener('chongchong:study-join-result', handleStudyJoinResult)
       window.removeEventListener('chongchong:notice-create-result', handleNoticeCreateResult)
+      window.removeEventListener('chongchong:notice-update-result', handleNoticeUpdateResult)
       window.removeEventListener('chongchong:studies', handleStudies)
       window.removeEventListener('chongchong:members', handleMembers)
     }
@@ -429,6 +459,7 @@ function App() {
 
   const openCreateNotice = () => {
     setCreateNoticeError(undefined)
+    setEditingNoticeId(undefined)
     setIsCreateNoticeOpen(true)
     postToNative({ type: 'open-create-notice' })
   }
@@ -437,9 +468,13 @@ function App() {
     if (isCreatingNotice) {
       return
     }
+    const wasEditing = Boolean(editingNoticeId)
     setIsCreateNoticeOpen(false)
     setCreateNoticeError(undefined)
-    postToNative({ type: 'close-create-notice' })
+    setEditingNoticeId(undefined)
+    if (!wasEditing) {
+      postToNative({ type: 'close-create-notice' })
+    }
   }
 
   const createNotice = (input: CreateNoticeInput) => {
@@ -453,6 +488,45 @@ function App() {
 
     window.dispatchEvent(
       new CustomEvent('chongchong:notice-create-result', {
+        detail: { status: 'success' },
+      }),
+    )
+  }
+
+  const openEditNotice = (noticeId: string) => {
+    setCreateNoticeError(undefined)
+    setEditingNoticeId(noticeId)
+    setIsCreateNoticeOpen(true)
+    postToNative({ noticeId, type: 'edit-notice' })
+  }
+
+  const updateNotice = (input: CreateNoticeInput) => {
+    if (!editingNoticeId) {
+      return
+    }
+    setIsCreatingNotice(true)
+    setCreateNoticeError(undefined)
+
+    if (window.ReactNativeWebView) {
+      postToNative({ ...input, noticeId: editingNoticeId, type: 'update-notice' })
+      return
+    }
+
+    setNotices((current) =>
+      current.map((notice) =>
+        notice.id === editingNoticeId
+          ? {
+              ...notice,
+              body: input.content,
+              content: input.content,
+              reminderAts: input.reminderAts,
+              title: input.title,
+            }
+          : notice,
+      ),
+    )
+    window.dispatchEvent(
+      new CustomEvent('chongchong:notice-update-result', {
         detail: { status: 'success' },
       }),
     )
@@ -534,13 +608,28 @@ function App() {
     )
   }
 
+  const editingNotice = editingNoticeId
+    ? notices.find((notice) => notice.id === editingNoticeId)
+    : undefined
+
   if (isCreateNoticeOpen) {
     return (
       <CreateNoticePage
         errorMessage={createNoticeError}
+        initialValue={
+          editingNotice
+            ? {
+                content: editingNotice.body,
+                reminderAts: editingNotice.reminderAts,
+                title: editingNotice.title,
+              }
+            : undefined
+        }
         isSubmitting={isCreatingNotice}
+        key={editingNoticeId ?? 'create'}
+        mode={editingNotice ? 'edit' : 'create'}
         onBack={closeCreateNotice}
-        onSubmit={createNotice}
+        onSubmit={editingNotice ? updateNotice : createNotice}
       />
     )
   }
@@ -567,7 +656,7 @@ function App() {
         notice={selectedNotice}
         onBack={closeNotice}
         onDelete={(noticeId) => postToNative({ type: 'delete-notice', noticeId })}
-        onEdit={(noticeId) => postToNative({ type: 'edit-notice', noticeId })}
+        onEdit={openEditNotice}
         onSendReminder={(noticeId, memberIds) =>
           postToNative({ type: 'send-notice-reminder', memberIds, noticeId })
         }
