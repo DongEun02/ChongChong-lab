@@ -139,6 +139,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <StatusBar style="dark" />
       <WebView
+        androidLayerType="software"
         cacheEnabled
         injectedJavaScriptBeforeContentLoaded={injectedSession}
         key={reloadKey}
