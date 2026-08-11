@@ -11,6 +11,12 @@ import leadHomeMascot from './assets/figma/lead-home-mascot.png'
 import membersIcon from './assets/figma/members.svg'
 import noticesIcon from './assets/figma/notices.svg'
 import reminderMascot from './assets/figma/reminder-mascot.png'
+import { NotificationListPage } from './features/notifications/NotificationListPage'
+import {
+  NOTIFICATION_PREVIEW,
+  parseNotifications,
+  type AppNotification,
+} from './features/notifications/notifications'
 import { NoticeDetailPage } from './features/notices/NoticeDetailPage'
 import { NoticeListPage } from './features/notices/NoticeListPage'
 import {
@@ -36,6 +42,7 @@ import './App.css'
 
 type TabId = 'home' | 'notices' | 'assignments' | 'members'
 type NoticeDataStatus = 'error' | 'loading' | 'ready'
+type NotificationDataStatus = 'error' | 'loading' | 'ready'
 type StudyDataStatus = 'error' | 'loading' | 'ready'
 type MemberDataStatus = 'error' | 'loading' | 'ready'
 type StudySummary = {
@@ -49,6 +56,7 @@ type StudySummary = {
   unreadNotices: number
 }
 type NativeMessage =
+  | { type: 'close-notifications' }
   | { type: 'close-notice' }
   | { type: 'close-create-study' }
   | { type: 'close-create-notice' }
@@ -66,6 +74,12 @@ type NativeMessage =
   | { type: 'open-create-notice' }
   | { type: 'open-join-study' }
   | { type: 'open-notifications' }
+  | {
+      type: 'open-notification'
+      notificationId: string
+      noticeId?: string
+      studyId?: string
+    }
   | { type: 'open-profile' }
   | { type: 'remove-study-member'; displayName: string; memberId: string }
   | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
@@ -98,7 +112,7 @@ const PREVIEW_MEMBERS: StudyMember[] = [
   { displayName: '정총총', id: 'preview-member-4', role: 'member' },
 ]
 
-const NOTICE_FORM_PREVIEW = import.meta.env.DEV
+const PAGE_PREVIEW = import.meta.env.DEV
   ? new URLSearchParams(window.location.search).get('preview')
   : null
 
@@ -115,13 +129,23 @@ function App() {
   const [isJoiningStudy, setIsJoiningStudy] = useState(false)
   const [joinStudyError, setJoinStudyError] = useState<string>()
   const [isCreateNoticeOpen, setIsCreateNoticeOpen] = useState(
-    NOTICE_FORM_PREVIEW === 'create-notice' || NOTICE_FORM_PREVIEW === 'edit-notice',
+    PAGE_PREVIEW === 'create-notice' || PAGE_PREVIEW === 'edit-notice',
   )
   const [isCreatingNotice, setIsCreatingNotice] = useState(false)
   const [createNoticeError, setCreateNoticeError] = useState<string>()
   const [editingNoticeId, setEditingNoticeId] = useState<string | undefined>(
-    NOTICE_FORM_PREVIEW === 'edit-notice' ? NOTICE_DETAILS[0]?.id : undefined,
+    PAGE_PREVIEW === 'edit-notice' ? NOTICE_DETAILS[0]?.id : undefined,
   )
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(
+    PAGE_PREVIEW === 'notifications',
+  )
+  const [notifications, setNotifications] = useState<AppNotification[]>(
+    window.ReactNativeWebView ? [] : NOTIFICATION_PREVIEW,
+  )
+  const [notificationDataStatus, setNotificationDataStatus] =
+    useState<NotificationDataStatus>(
+      window.ReactNativeWebView ? 'loading' : 'ready',
+    )
   const [studies, setStudies] = useState<StudySummary[]>(
     window.ReactNativeWebView ? [] : [STUDY],
   )
@@ -173,6 +197,7 @@ function App() {
       setIsCreatingNotice(false)
       setCreateNoticeError(undefined)
       setEditingNoticeId(undefined)
+      setIsNotificationsOpen(false)
     }
     window.addEventListener('chongchong:close-subpage', handleCloseSubpage)
     const handleNotices = (event: Event) => {
@@ -352,6 +377,26 @@ function App() {
       }
     }
     window.addEventListener('chongchong:members', handleMembers)
+    const handleNotifications = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) {
+        return
+      }
+
+      if (detail.status === 'error') {
+        setNotificationDataStatus('error')
+        return
+      }
+
+      if (detail.status === 'ready' && 'notifications' in detail) {
+        const parsedNotifications = parseNotifications(detail.notifications)
+        if (parsedNotifications) {
+          setNotifications(parsedNotifications)
+          setNotificationDataStatus('ready')
+        }
+      }
+    }
+    window.addEventListener('chongchong:notifications', handleNotifications)
 
     return () => {
       window.removeEventListener('chongchong:navigate', handleNavigation)
@@ -365,6 +410,7 @@ function App() {
       window.removeEventListener('chongchong:notice-update-result', handleNoticeUpdateResult)
       window.removeEventListener('chongchong:studies', handleStudies)
       window.removeEventListener('chongchong:members', handleMembers)
+      window.removeEventListener('chongchong:notifications', handleNotifications)
     }
   }, [])
 
@@ -585,6 +631,48 @@ function App() {
     postToNative({ type: 'close-notice' })
   }
 
+  const openNotifications = () => {
+    setIsNotificationsOpen(true)
+    postToNative({ type: 'open-notifications' })
+  }
+
+  const closeNotifications = () => {
+    setIsNotificationsOpen(false)
+    postToNative({ type: 'close-notifications' })
+  }
+
+  const openNotification = (notification: AppNotification) => {
+    setNotifications((current) =>
+      current.map((candidate) =>
+        candidate.id === notification.id
+          ? { ...candidate, isRead: true }
+          : candidate,
+      ),
+    )
+    postToNative({
+      notificationId: notification.id,
+      noticeId: notification.noticeId,
+      studyId: notification.studyId,
+      type: 'open-notification',
+    })
+
+    if (!notification.studyId || !notification.noticeId) {
+      return
+    }
+    const targetStudy = studies.find(
+      (study) => study.id === notification.studyId,
+    )
+    if (!targetStudy) {
+      return
+    }
+
+    setSelectedStudy(targetStudy)
+    setIsStudyOpen(true)
+    setIsNotificationsOpen(false)
+    setActiveTab('notices')
+    setSelectedNoticeId(notification.noticeId)
+  }
+
   if (isCreateStudyOpen) {
     return (
       <CreateStudyPage
@@ -634,6 +722,17 @@ function App() {
     )
   }
 
+  if (isNotificationsOpen) {
+    return (
+      <NotificationListPage
+        notifications={notifications}
+        onBack={closeNotifications}
+        onOpenNotification={openNotification}
+        status={notificationDataStatus}
+      />
+    )
+  }
+
   if (!isStudyOpen) {
     return (
       <StudyList
@@ -679,7 +778,7 @@ function App() {
       onRemoveMember={removeMember}
       onOpenNotice={openNotice}
       onCreateNotice={openCreateNotice}
-      onOpenNotifications={() => postToNative({ type: 'open-notifications' })}
+      onOpenNotifications={openNotifications}
     />
   )
 }
