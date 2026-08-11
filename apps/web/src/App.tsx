@@ -41,6 +41,7 @@ type StudySummary = {
 type NativeMessage =
   | { type: 'close-notice' }
   | { type: 'close-create-study' }
+  | { type: 'close-join-study' }
   | ({ type: 'create-study' } & CreateStudyInput)
   | { type: 'create-notice' }
   | { type: 'delete-notice'; noticeId: string }
@@ -298,6 +299,15 @@ function App() {
     postToNative({ type: 'open-join-study' })
   }
 
+  const closeJoinStudy = () => {
+    if (isJoiningStudy) {
+      return
+    }
+    setIsJoinStudyOpen(false)
+    setJoinStudyError(undefined)
+    postToNative({ type: 'close-join-study' })
+  }
+
   const joinStudy = (inviteUrl: string) => {
     setIsJoiningStudy(true)
     setJoinStudyError(undefined)
@@ -356,6 +366,7 @@ function App() {
       <JoinStudyPage
         errorMessage={joinStudyError}
         isSubmitting={isJoiningStudy}
+        onBack={closeJoinStudy}
         onOpenProfile={() => postToNative({ type: 'open-profile' })}
         onSubmit={joinStudy}
       />

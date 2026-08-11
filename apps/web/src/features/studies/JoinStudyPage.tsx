@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
 
+import backIcon from '../../assets/figma/back.svg'
 import brandMark from '../../assets/figma/brand-mark.png'
 import './JoinStudyPage.css'
 
 type JoinStudyPageProps = {
   errorMessage?: string
   isSubmitting: boolean
+  onBack: () => void
   onOpenProfile: () => void
   onSubmit: (inviteUrl: string) => void
 }
@@ -13,6 +15,7 @@ type JoinStudyPageProps = {
 export function JoinStudyPage({
   errorMessage,
   isSubmitting,
+  onBack,
   onOpenProfile,
   onSubmit,
 }: JoinStudyPageProps) {
@@ -28,7 +31,16 @@ export function JoinStudyPage({
 
   return (
     <main className="screen join-study-screen">
-      <header className="brand-header">
+      <header className="join-study-header">
+        <button
+          aria-label="스터디 목록으로 돌아가기"
+          className="icon-button"
+          disabled={isSubmitting}
+          onClick={onBack}
+          type="button"
+        >
+          <img alt="" src={backIcon} />
+        </button>
         <img alt="총총" className="brand-mark" src={brandMark} />
         <button className="text-button" onClick={onOpenProfile} type="button">
           My

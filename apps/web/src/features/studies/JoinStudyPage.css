@@ -1,3 +1,22 @@
+.join-study-header {
+  position: relative;
+  display: flex;
+  height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+}
+
+.join-study-header .brand-mark {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.join-study-header .text-button {
+  right: 20px;
+}
+
 .join-study-form {
   display: flex;
   flex-direction: column;

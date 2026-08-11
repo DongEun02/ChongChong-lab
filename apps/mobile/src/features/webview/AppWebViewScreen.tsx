@@ -85,6 +85,7 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
 
   return [
     'close-create-study',
+    'close-join-study',
     'close-notice',
     'create-notice',
     'exit-study',
@@ -260,6 +261,11 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         }
 
         if (message.type === 'close-create-study') {
+          setIsSubpageOpen(false);
+          return;
+        }
+
+        if (message.type === 'close-join-study') {
           setIsSubpageOpen(false);
           return;
         }

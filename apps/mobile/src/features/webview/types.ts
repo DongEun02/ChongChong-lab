@@ -2,6 +2,7 @@ export type AppTab = 'home' | 'notices' | 'assignments' | 'members';
 
 export type WebViewMessage =
   | { type: 'close-create-study' }
+  | { type: 'close-join-study' }
   | { type: 'close-notice' }
   | {
       type: 'create-study';
