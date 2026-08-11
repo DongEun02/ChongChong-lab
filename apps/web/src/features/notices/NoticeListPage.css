@@ -11,6 +11,21 @@
   gap: 12px;
 }
 
+.notice-data-state {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.notice-data-state.is-error {
+  background: rgba(235, 57, 57, 0.08);
+  color: #b42318;
+}
+
 .notice-card {
   display: flex;
   width: 100%;

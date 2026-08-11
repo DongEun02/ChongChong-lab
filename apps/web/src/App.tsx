@@ -13,10 +13,15 @@ import noticesIcon from './assets/figma/notices.svg'
 import reminderMascot from './assets/figma/reminder-mascot.png'
 import { NoticeDetailPage } from './features/notices/NoticeDetailPage'
 import { NoticeListPage } from './features/notices/NoticeListPage'
-import { getNoticeDetail, NOTICE_SUMMARIES } from './features/notices/notices'
+import {
+  NOTICE_DETAILS,
+  parseNoticePayloads,
+  type NoticeDetail,
+} from './features/notices/notices'
 import './App.css'
 
 type TabId = 'home' | 'notices' | 'assignments' | 'members'
+type NoticeDataStatus = 'error' | 'loading' | 'ready'
 type NativeMessage =
   | { type: 'close-notice' }
   | { type: 'create-notice' }
@@ -53,6 +58,12 @@ function App() {
   const [isStudyOpen, setIsStudyOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<TabId>('home')
   const [selectedNoticeId, setSelectedNoticeId] = useState<string | null>(null)
+  const [notices, setNotices] = useState<NoticeDetail[]>(
+    window.ReactNativeWebView ? [] : NOTICE_DETAILS,
+  )
+  const [noticeDataStatus, setNoticeDataStatus] = useState<NoticeDataStatus>(
+    window.ReactNativeWebView ? 'loading' : 'ready',
+  )
   const displayName = window.__CHONGCHONG_SESSION__?.displayName?.trim() || '바니'
 
   useEffect(() => {
@@ -71,11 +82,31 @@ function App() {
     window.addEventListener('chongchong:exit-study', handleExitStudy)
     const handleCloseNotice = () => setSelectedNoticeId(null)
     window.addEventListener('chongchong:close-notice', handleCloseNotice)
+    const handleNotices = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) {
+        return
+      }
+      if (detail.status === 'error') {
+        setNotices(NOTICE_DETAILS)
+        setNoticeDataStatus('error')
+        return
+      }
+      if (detail.status === 'ready' && 'notices' in detail) {
+        const parsedNotices = parseNoticePayloads(detail.notices)
+        if (parsedNotices) {
+          setNotices(parsedNotices)
+          setNoticeDataStatus('ready')
+        }
+      }
+    }
+    window.addEventListener('chongchong:notices', handleNotices)
 
     return () => {
       window.removeEventListener('chongchong:navigate', handleNavigation)
       window.removeEventListener('chongchong:exit-study', handleExitStudy)
       window.removeEventListener('chongchong:close-notice', handleCloseNotice)
+      window.removeEventListener('chongchong:notices', handleNotices)
     }
   }, [])
 
@@ -111,9 +142,7 @@ function App() {
     )
   }
 
-  const selectedNotice = selectedNoticeId
-    ? getNoticeDetail(selectedNoticeId)
-    : undefined
+  const selectedNotice = notices.find((notice) => notice.id === selectedNoticeId)
 
   if (selectedNotice) {
     return (
@@ -133,6 +162,8 @@ function App() {
     <StudyPage
       activeTab={activeTab}
       displayName={displayName}
+      noticeDataStatus={noticeDataStatus}
+      notices={notices}
       onBack={closeStudy}
       onOpenNotice={openNotice}
       onOpenNotifications={() => postToNative({ type: 'open-notifications' })}
@@ -197,6 +228,8 @@ function StudyList({ displayName, onOpenProfile, onOpenStudy }: StudyListProps) 
 type StudyPageProps = {
   activeTab: TabId
   displayName: string
+  noticeDataStatus: NoticeDataStatus
+  notices: NoticeDetail[]
   onBack: () => void
   onOpenNotice: (noticeId: string) => void
   onOpenNotifications: () => void
@@ -205,6 +238,8 @@ type StudyPageProps = {
 function StudyPage({
   activeTab,
   displayName,
+  noticeDataStatus,
+  notices,
   onBack,
   onOpenNotice,
   onOpenNotifications,
@@ -228,7 +263,8 @@ function StudyPage({
         <StudyHome displayName={displayName} />
       ) : activeTab === 'notices' ? (
         <NoticeListPage
-          notices={NOTICE_SUMMARIES}
+          dataStatus={noticeDataStatus}
+          notices={notices}
           onCreateNotice={() => postToNative({ type: 'create-notice' })}
           onOpenNotice={onOpenNotice}
         />

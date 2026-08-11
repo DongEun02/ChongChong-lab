@@ -33,6 +33,9 @@ importers:
       '@react-native-firebase/firestore':
         specifier: 26.1.0
         version: 26.1.0(@react-native-firebase/app@26.1.0(@react-native-async-storage/async-storage@2.2.0(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1)))(expo@57.0.12)(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3))(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))
+      '@react-native-firebase/functions':
+        specifier: 26.1.0
+        version: 26.1.0(@react-native-firebase/app@26.1.0(@react-native-async-storage/async-storage@2.2.0(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1)))(expo@57.0.12)(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3))
       expo:
         specifier: ~57.0.12
         version: 57.0.12(@babel/core@7.29.7(supports-color@8.1.1))(@expo/dom-webview@57.0.1)(react-dom@19.2.3(react@19.2.3))(react-native-webview@13.16.1(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3))(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1)(typescript@6.0.3)
@@ -1158,6 +1161,11 @@ packages:
 
   '@react-native-firebase/firestore@26.1.0':
     resolution: {integrity: sha512-I4n4KX6mHJAsZ2XEpRMda/OsYKNlLftImy744wRARHYaZxMYqY//8Ms1wCY8c0Ph73krjT6s7eKkhwHGB9ASdQ==}
+    peerDependencies:
+      '@react-native-firebase/app': 26.1.0
+
+  '@react-native-firebase/functions@26.1.0':
+    resolution: {integrity: sha512-i+waYdiDIKzB+LhRbQ0YCcswpS2IGWwV6BsixDINGUYxUjtSR5OQ+1I6ja/5majKk3N9YW1dMxrLx+Xgn+HFng==}
     peerDependencies:
       '@react-native-firebase/app': 26.1.0
 
@@ -5916,6 +5924,10 @@ snapshots:
       react-native-url-polyfill: 3.0.0(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))
     transitivePeerDependencies:
       - react-native
+
+  '@react-native-firebase/functions@26.1.0(@react-native-firebase/app@26.1.0(@react-native-async-storage/async-storage@2.2.0(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1)))(expo@57.0.12)(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3))':
+    dependencies:
+      '@react-native-firebase/app': 26.1.0(@react-native-async-storage/async-storage@2.2.0(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1)))(expo@57.0.12)(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)
 
   '@react-native/assets-registry@0.86.2': {}
 

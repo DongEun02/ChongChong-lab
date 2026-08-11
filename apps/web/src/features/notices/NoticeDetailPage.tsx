@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 import backIcon from '../../assets/figma/back.svg'
 import deleteIcon from '../../assets/figma/delete.svg'
 import editIcon from '../../assets/figma/edit.svg'
@@ -25,30 +23,11 @@ export function NoticeDetailPage({
   onEdit,
   onSendReminder,
 }: NoticeDetailPageProps) {
-  const [lastReminderLabels, setLastReminderLabels] = useState<Record<string, string>>(
-    () => Object.fromEntries(
-      notice.members.flatMap((member) =>
-        member.lastReminderLabel ? [[member.id, member.lastReminderLabel]] : [],
-      ),
-    ),
-  )
-  const [statusMessage, setStatusMessage] = useState('')
   const readMembers = notice.members.filter((member) => member.read)
   const unreadMembers = notice.members.filter((member) => !member.read)
   const readRatio = (readMembers.length / notice.members.length) * 100
 
   const sendReminder = (memberIds: string[]) => {
-    const nowLabel = '방금 보냄'
-
-    setLastReminderLabels((current) => ({
-      ...current,
-      ...Object.fromEntries(memberIds.map((memberId) => [memberId, nowLabel])),
-    }))
-    setStatusMessage(
-      memberIds.length === 1
-        ? '선택한 멤버에게 리마인드를 보냈어요.'
-        : `미확인 ${memberIds.length}명에게 리마인드를 보냈어요.`,
-    )
     onSendReminder(notice.id, memberIds)
   }
 
@@ -110,7 +89,7 @@ export function NoticeDetailPage({
                 <img alt="" src={noticeAvatarIcon} />
                 <span>
                   <strong>{member.name}</strong>
-                  <small>{lastReminderLabels[member.id]}</small>
+                  <small>{member.lastReminderLabel}</small>
                 </span>
                 <button
                   onClick={() => sendReminder([member.id])}
@@ -131,9 +110,6 @@ export function NoticeDetailPage({
           >
             모두에게 보내기
           </button>
-          <p aria-live="polite" className="visually-hidden">
-            {statusMessage}
-          </p>
         </section>
 
         <article className="notice-article">

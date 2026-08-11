@@ -7,6 +7,12 @@ import {
 import { getMessaging } from 'firebase-admin/messaging';
 import { logger } from 'firebase-functions';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { HttpsError, onCall } from 'firebase-functions/v2/https';
+
+import {
+  parseNoticeReminderRequest,
+  resolveUnreadRecipients,
+} from './noticeReminders.js';
 
 import {
   chunkTargets,
@@ -20,6 +26,106 @@ if (getApps().length === 0) {
 }
 
 const db = getFirestore();
+
+export const sendNoticeReminder = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseNoticeReminderRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const studySnapshot = await studyReference.get();
+    if (!studySnapshot.exists) {
+      throw new HttpsError('not-found', '스터디를 찾을 수 없습니다.');
+    }
+    if (studySnapshot.get('leaderId') !== request.auth.uid) {
+      throw new HttpsError(
+        'permission-denied',
+        '스터디 리드만 리마인드를 보낼 수 있습니다.',
+      );
+    }
+
+    const noticeReference = studyReference
+      .collection('notices')
+      .doc(input.noticeId);
+    const [noticeSnapshot, memberSnapshots] = await Promise.all([
+      noticeReference.get(),
+      studyReference.collection('members').get(),
+    ]);
+
+    if (!noticeSnapshot.exists) {
+      throw new HttpsError('not-found', '공지를 찾을 수 없습니다.');
+    }
+
+    const activeMemberIds = memberSnapshots.docs
+      .filter((snapshot) => snapshot.get('status') === 'active')
+      .map((snapshot) => snapshot.id);
+    const rawReaders = noticeSnapshot.get('readByUserIds');
+    const readByUserIds = Array.isArray(rawReaders)
+      ? rawReaders.filter((userId): userId is string => typeof userId === 'string')
+      : [];
+    const recipientUserIds = resolveUnreadRecipients(
+      input.recipientUserIds,
+      activeMemberIds,
+      readByUserIds,
+    );
+
+    if (recipientUserIds.length === 0) {
+      throw new HttpsError(
+        'failed-precondition',
+        '리마인드를 받을 미확인 멤버가 없습니다.',
+      );
+    }
+
+    const noticeTitle = noticeSnapshot.get('title');
+    if (typeof noticeTitle !== 'string' || noticeTitle.trim().length === 0) {
+      throw new HttpsError('failed-precondition', '공지 제목이 올바르지 않습니다.');
+    }
+
+    const jobReference = db.collection('notificationJobs').doc();
+    await db.runTransaction(async (transaction) => {
+      transaction.create(jobReference, {
+        body: noticeTitle,
+        createdAt: FieldValue.serverTimestamp(),
+        createdBy: request.auth!.uid,
+        data: {
+          noticeId: input.noticeId,
+          screen: 'notice-detail',
+          studyId: input.studyId,
+        },
+        recipientUserIds,
+        status: 'pending',
+        title: '읽지 않은 공지가 있어요',
+      });
+
+      transaction.update(
+        noticeReference,
+        Object.fromEntries(
+          recipientUserIds.map((userId) => [
+            `lastReminderAtByUserId.${userId}`,
+            FieldValue.serverTimestamp(),
+          ]),
+        ),
+      );
+    });
+
+    return { jobId: jobReference.id, targetCount: recipientUserIds.length };
+  },
+);
 
 export const deliverPushNotification = onDocumentCreated(
   {

@@ -35,6 +35,22 @@ React Native와 Expo로 다음 네이티브 기능을 담당합니다.
 4. FCM에서 만료 또는 미등록으로 응답한 토큰을 삭제합니다.
 5. 작업 문서에 성공·실패·대상 수와 완료 상태를 기록합니다.
 
+공지 리마인드는 클라이언트가 `notificationJobs`를 직접 쓰지 않고
+`sendNoticeReminder` Callable Function을 호출합니다. 함수는 로그인 상태와
+`studies/{studyId}.leaderId`를 확인하고, 활성 멤버이면서 아직 공지를 읽지 않은
+사용자만 발송 대상으로 확정합니다.
+
+### 공지 데이터 구조
+
+- `studies/{studyId}`: `leaderId`, 스터디 기본 정보
+- `studies/{studyId}/members/{userId}`: `displayName`, `role`, `status`
+- `studies/{studyId}/notices/{noticeId}`: `title`, `content`, `authorName`,
+  `publishedAt`, `reminderAt`, `readByUserIds`, `lastReminderAtByUserId`
+
+Firestore 규칙은 `status == active`인 스터디 멤버에게만 스터디, 멤버, 공지
+읽기를 허용합니다. 공지 생성·수정·삭제는 후속 Callable Function을 통해
+권한을 검증한 뒤 처리합니다.
+
 ## 계정 삭제 규칙
 
 스터디 리드는 리드 권한을 다른 멤버에게 양도하기 전에는 회원 탈퇴를 완료할 수 없습니다. 모든 리드 권한을 양도한 사용자는 계정과 연결 데이터를 삭제할 수 있습니다.
