@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 
 import backIcon from '../../assets/figma/back.svg'
 import clipboardIcon from '../../assets/figma/clipboard.svg'
+import deleteIcon from '../../assets/figma/delete.svg'
+import editIcon from '../../assets/figma/edit.svg'
 import sendIcon from '../../assets/figma/send.svg'
 import submissionLinkIcon from '../../assets/figma/submission-link.svg'
 import { formatDateTime, type AssignmentSummary } from './assignments'
@@ -9,16 +11,22 @@ import './AssignmentDetailPage.css'
 
 type Props = {
   assignment: AssignmentSummary
+  deleteError?: string
   errorMessage?: string
+  isDeleting: boolean
   isSubmitting: boolean
   onBack: () => void
+  onDelete: (assignmentId: string) => void
+  onEdit: (assignmentId: string) => void
   onReminder: (memberIds: string[]) => void
   onSubmit: (content: string, link?: string) => void
   role: 'leader' | 'member'
 }
 
-export function AssignmentDetailPage({ assignment, errorMessage, isSubmitting, onBack, onReminder, onSubmit, role }: Props) {
+export function AssignmentDetailPage({ assignment, deleteError, errorMessage, isDeleting, isSubmitting, onBack, onDelete, onEdit, onReminder, onSubmit, role }: Props) {
   const [isEditing, setIsEditing] = useState(!assignment.submission)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [hasRequestedDelete, setHasRequestedDelete] = useState(false)
   const [content, setContent] = useState(assignment.submission?.content ?? '')
   const [link, setLink] = useState(assignment.submission?.link ?? '')
   const validLink = link.trim() === '' || /^https?:\/\//i.test(link.trim())
@@ -29,6 +37,17 @@ export function AssignmentDetailPage({ assignment, errorMessage, isSubmitting, o
   }
 
   const unsubmitted = assignment.members.filter((member) => !member.submitted)
+  const openDeleteDialog = () => {
+    setHasRequestedDelete(false)
+    setIsDeleteDialogOpen(true)
+  }
+  const closeDeleteDialog = () => {
+    if (!isDeleting) setIsDeleteDialogOpen(false)
+  }
+  const confirmDelete = () => {
+    setHasRequestedDelete(true)
+    onDelete(assignment.id)
+  }
   return (
     <main className="screen assignment-detail-screen">
       <header className="assignment-subpage-header">
@@ -54,6 +73,13 @@ export function AssignmentDetailPage({ assignment, errorMessage, isSubmitting, o
         <h2>{assignment.title}</h2>
         <InfoCard label="과제 내용">{assignment.content}</InfoCard>
         <InfoCard label="제출 방법">{assignment.submissionInstructions}</InfoCard>
+
+        {role === 'leader' ? (
+          <div className="assignment-detail-actions">
+            <button onClick={() => onEdit(assignment.id)} type="button"><img alt="" src={editIcon} />수정</button>
+            <button className="delete-button" onClick={openDeleteDialog} type="button"><img alt="" src={deleteIcon} />삭제</button>
+          </div>
+        ) : null}
 
         {role === 'member' ? (
           <section className="my-submission">
@@ -82,6 +108,22 @@ export function AssignmentDetailPage({ assignment, errorMessage, isSubmitting, o
           </section>
         )}
       </div>
+
+      {isDeleteDialogOpen ? (
+        <div className="assignment-delete-overlay">
+          <section aria-describedby="assignment-delete-description" aria-labelledby="assignment-delete-title" aria-modal="true" className="assignment-delete-dialog" role="alertdialog">
+            <div className="assignment-delete-copy">
+              <h2 id="assignment-delete-title">과제를 삭제할까요?</h2>
+              <p id="assignment-delete-description">제출 내역과 관련 알림도 함께 삭제되며<br />다시 복구할 수 없어요.</p>
+              {hasRequestedDelete && deleteError ? <small role="alert">{deleteError}</small> : null}
+            </div>
+            <div className="assignment-delete-actions">
+              <button autoFocus disabled={isDeleting} onClick={closeDeleteDialog} type="button">취소</button>
+              <button className="confirm-delete" disabled={isDeleting} onClick={confirmDelete} type="button">{isDeleting ? '삭제 중...' : '삭제'}</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   )
 }

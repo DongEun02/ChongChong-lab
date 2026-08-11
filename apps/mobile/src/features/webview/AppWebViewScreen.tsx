@@ -20,9 +20,11 @@ import { BottomTabBar } from './BottomTabBar';
 import type { AppTab, WebViewMessage } from './types';
 import {
   createAssignment,
+  deleteAssignment,
   requestAssignmentReminder,
   submitAssignment,
   subscribeToStudyAssignments,
+  updateAssignment,
   type AssignmentPayload,
 } from '../assignments/assignmentData';
 import {
@@ -100,8 +102,10 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     );
   }
 
-  if (value.type === 'create-assignment') {
+  if (value.type === 'create-assignment' || value.type === 'update-assignment') {
     return (
+      (value.type !== 'update-assignment' ||
+        ('assignmentId' in value && typeof value.assignmentId === 'string')) &&
       'title' in value && typeof value.title === 'string' &&
       'content' in value && typeof value.content === 'string' &&
       'submissionInstructions' in value && typeof value.submissionInstructions === 'string' &&
@@ -149,6 +153,10 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
   }
 
   if (value.type === 'open-assignment') {
+    return 'assignmentId' in value && typeof value.assignmentId === 'string';
+  }
+
+  if (value.type === 'edit-assignment' || value.type === 'delete-assignment') {
     return 'assignmentId' in value && typeof value.assignmentId === 'string';
   }
 
@@ -229,7 +237,11 @@ function createAssignmentDataScript(
 }
 
 function createAssignmentResultScript(
-  eventName: 'assignment-create-result' | 'assignment-submit-result',
+  eventName:
+    | 'assignment-create-result'
+    | 'assignment-delete-result'
+    | 'assignment-submit-result'
+    | 'assignment-update-result',
   detail: unknown,
 ) {
   const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
@@ -566,6 +578,11 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           return;
         }
 
+        if (message.type === 'edit-assignment') {
+          setIsSubpageOpen(true);
+          return;
+        }
+
         if (message.type === 'open-join-study') {
           setIsSubpageOpen(true);
           return;
@@ -824,6 +841,37 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
             console.warn('Assignment creation error', error);
             webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-create-result', { message: getCallableErrorMessage(error, '과제를 올리지 못했어요.'), status: 'error' }));
           });
+          return;
+        }
+
+        if (message.type === 'update-assignment') {
+          if (!selectedStudyId) return;
+          void updateAssignment(selectedStudyId, message.assignmentId, {
+            content: message.content,
+            deadlineAt: message.deadlineAt,
+            reminderAts: message.reminderAts,
+            submissionInstructions: message.submissionInstructions,
+            title: message.title,
+          }).then((assignment) => {
+            webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-update-result', { assignment, status: 'success' }));
+          }).catch((error: unknown) => {
+            console.warn('Assignment update error', error);
+            webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-update-result', { message: getCallableErrorMessage(error, '과제를 수정하지 못했어요.'), status: 'error' }));
+          });
+          return;
+        }
+
+        if (message.type === 'delete-assignment') {
+          if (!selectedStudyId) return;
+          void deleteAssignment(selectedStudyId, message.assignmentId)
+            .then((assignment) => {
+              setIsSubpageOpen(false);
+              webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-delete-result', { assignment, status: 'success' }));
+            })
+            .catch((error: unknown) => {
+              console.warn('Assignment deletion error', error);
+              webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-delete-result', { message: getCallableErrorMessage(error, '과제를 삭제하지 못했어요.'), status: 'error' }));
+            });
           return;
         }
 

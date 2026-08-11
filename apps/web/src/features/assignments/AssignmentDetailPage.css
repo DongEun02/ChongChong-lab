@@ -35,3 +35,101 @@
 .assignment-submit-form input { height:56px; }
 .assignment-submit-form textarea:focus, .assignment-submit-form input:focus { border-color:#00c471; }
 .assignment-link-error { margin-top:-12px; color:#de5e56; font-size:12px; }
+.assignment-detail-actions {
+  display: grid;
+  margin-top: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.assignment-detail-actions button {
+  display: inline-flex;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  background: #fff;
+  color: #172033;
+}
+
+.assignment-detail-actions img {
+  width: 16px;
+  height: 16px;
+}
+
+.assignment-detail-actions .delete-button,
+.assignment-delete-actions .confirm-delete {
+  color: #de5e56;
+}
+
+.assignment-detail-actions .delete-button {
+  border-color: rgba(235, 57, 57, 0.25);
+}
+
+.assignment-delete-overlay {
+  position: fixed;
+  z-index: 10;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.assignment-delete-dialog {
+  overflow: hidden;
+  width: min(310px, 100%);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.assignment-delete-copy {
+  padding: 24px 20px 20px;
+  text-align: center;
+}
+
+.assignment-delete-copy h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 28px;
+}
+
+.assignment-delete-copy p {
+  margin: 8px 0 0;
+  color: rgba(15, 23, 42, 0.7);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.assignment-delete-copy small {
+  display: block;
+  margin-top: 8px;
+  color: #de5e56;
+  font-size: 12px;
+}
+
+.assignment-delete-actions {
+  display: grid;
+  height: 52px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.assignment-delete-actions button {
+  border: 0;
+  background: #fff;
+  color: rgba(15, 23, 42, 0.4);
+}
+
+.assignment-delete-actions button + button {
+  border-left: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.assignment-delete-actions button:disabled {
+  opacity: 0.55;
+}

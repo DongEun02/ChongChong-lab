@@ -15,17 +15,25 @@ export type CreateAssignmentInput = {
 
 type Props = {
   errorMessage?: string
+  initialValue?: CreateAssignmentInput
   isSubmitting: boolean
+  mode?: 'create' | 'edit'
   onBack: () => void
   onSubmit: (input: CreateAssignmentInput) => void
 }
 
-export function CreateAssignmentPage({ errorMessage, isSubmitting, onBack, onSubmit }: Props) {
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [submissionInstructions, setSubmissionInstructions] = useState('')
-  const [deadline, setDeadline] = useState('')
-  const [reminders, setReminders] = useState([''])
+export function CreateAssignmentPage({ errorMessage, initialValue, isSubmitting, mode = 'create', onBack, onSubmit }: Props) {
+  const [title, setTitle] = useState(initialValue?.title ?? '')
+  const [content, setContent] = useState(initialValue?.content ?? '')
+  const [submissionInstructions, setSubmissionInstructions] = useState(initialValue?.submissionInstructions ?? '')
+  const [deadline, setDeadline] = useState(() => initialValue ? toLocalDateTime(new Date(initialValue.deadlineAt)) : '')
+  const [reminders, setReminders] = useState(() => {
+    const futureReminders = (initialValue?.reminderAts ?? [])
+      .map((value) => new Date(value))
+      .filter((date) => date > new Date())
+      .map(toLocalDateTime)
+    return futureReminders.length > 0 ? futureReminders : ['']
+  })
   const minimum = toLocalDateTime(new Date())
   const deadlineDate = new Date(deadline)
   const validDates = deadline !== '' && deadlineDate > new Date() && reminders.every((value) => {
@@ -70,7 +78,11 @@ export function CreateAssignmentPage({ errorMessage, isSubmitting, onBack, onSub
           <small>설정한 시각마다 제출하지 않은 스터디원에게 알림을 보내드릴게요</small>
         </fieldset>
         {errorMessage ? <p className="assignment-form-error">{errorMessage}</p> : null}
-        <button className="assignment-primary-action" disabled={!canSubmit} type="submit">{isSubmitting ? '올리는 중...' : '과제 올리기'}</button>
+        <button className="assignment-primary-action" disabled={!canSubmit} type="submit">
+          {isSubmitting
+            ? mode === 'edit' ? '수정하는 중...' : '올리는 중...'
+            : mode === 'edit' ? '수정 완료' : '과제 올리기'}
+        </button>
       </form>
     </main>
   )

@@ -14,7 +14,9 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import {
   parseAssignmentReminderRequest,
   parseCreateAssignmentRequest,
+  parseDeleteAssignmentRequest,
   parseSubmitAssignmentRequest,
+  parseUpdateAssignmentRequest,
   resolveAssignmentReminderSchedule,
 } from './assignments.js';
 
@@ -1031,6 +1033,175 @@ export const createAssignment = onCall(
   },
 );
 
+export const updateAssignment = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseUpdateAssignmentRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const actorReference = studyReference
+      .collection('members')
+      .doc(request.auth.uid);
+    const assignmentReference = studyReference
+      .collection('assignments')
+      .doc(input.assignmentId);
+
+    await db.runTransaction(async (transaction) => {
+      const [studySnapshot, actorSnapshot, assignmentSnapshot] =
+        await Promise.all([
+          transaction.get(studyReference),
+          transaction.get(actorReference),
+          transaction.get(assignmentReference),
+        ]);
+
+      if (
+        !studySnapshot.exists ||
+        studySnapshot.get('status') !== 'active' ||
+        !assignmentSnapshot.exists
+      ) {
+        throw new HttpsError('not-found', '과제를 찾을 수 없습니다.');
+      }
+      if (
+        studySnapshot.get('leaderId') !== request.auth!.uid ||
+        actorSnapshot.get('status') !== 'active' ||
+        actorSnapshot.get('role') !== 'leader'
+      ) {
+        throw new HttpsError(
+          'permission-denied',
+          '스터디 리드만 과제를 수정할 수 있습니다.',
+        );
+      }
+
+      const reminderAts = input.reminderAts.map((date) =>
+        Timestamp.fromDate(date),
+      );
+      transaction.update(assignmentReference, {
+        content: input.content,
+        deadlineAt: Timestamp.fromDate(input.deadlineAt),
+        nextReminderAt: reminderAts[0],
+        reminderAt: reminderAts[0],
+        reminderAts,
+        submissionInstructions: input.submissionInstructions,
+        title: input.title,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    });
+
+    return { assignment: { id: input.assignmentId, title: input.title } };
+  },
+);
+
+export const deleteAssignment = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseDeleteAssignmentRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const actorReference = studyReference
+      .collection('members')
+      .doc(request.auth.uid);
+    const assignmentReference = studyReference
+      .collection('assignments')
+      .doc(input.assignmentId);
+
+    const title = await db.runTransaction(async (transaction) => {
+      const [studySnapshot, actorSnapshot, assignmentSnapshot, membersSnapshot,
+        submissionsSnapshot] = await Promise.all([
+        transaction.get(studyReference),
+        transaction.get(actorReference),
+        transaction.get(assignmentReference),
+        transaction.get(studyReference.collection('members')),
+        transaction.get(assignmentReference.collection('submissions')),
+      ]);
+
+      if (
+        !studySnapshot.exists ||
+        studySnapshot.get('status') !== 'active' ||
+        !assignmentSnapshot.exists
+      ) {
+        throw new HttpsError('not-found', '과제를 찾을 수 없습니다.');
+      }
+      if (
+        studySnapshot.get('leaderId') !== request.auth!.uid ||
+        actorSnapshot.get('status') !== 'active' ||
+        actorSnapshot.get('role') !== 'leader'
+      ) {
+        throw new HttpsError(
+          'permission-denied',
+          '스터디 리드만 과제를 삭제할 수 있습니다.',
+        );
+      }
+
+      const rawSubmittedIds = assignmentSnapshot.get('submittedByUserIds');
+      const submittedIds = new Set(
+        Array.isArray(rawSubmittedIds)
+          ? rawSubmittedIds.filter(
+              (userId): userId is string => typeof userId === 'string',
+            )
+          : [],
+      );
+      for (const member of membersSnapshot.docs) {
+        if (
+          member.get('status') !== 'active' ||
+          member.get('role') === 'leader' ||
+          submittedIds.has(member.id)
+        ) {
+          continue;
+        }
+        transaction.set(
+          db
+            .collection('users')
+            .doc(member.id)
+            .collection('studies')
+            .doc(input.studyId),
+          { pendingAssignments: FieldValue.increment(-1) },
+          { merge: true },
+        );
+      }
+      for (const submission of submissionsSnapshot.docs) {
+        transaction.delete(submission.ref);
+      }
+      transaction.delete(assignmentReference);
+
+      const assignmentTitle = assignmentSnapshot.get('title');
+      return typeof assignmentTitle === 'string' ? assignmentTitle : '';
+    });
+
+    await deleteAssignmentNotifications(input.studyId, input.assignmentId);
+    return { assignment: { id: input.assignmentId, title } };
+  },
+);
+
 export const submitAssignment = onCall(
   {
     enforceAppCheck: false,
@@ -1053,6 +1224,7 @@ export const submitAssignment = onCall(
     const assignmentReference = studyReference.collection('assignments').doc(input.assignmentId);
     const memberReference = studyReference.collection('members').doc(request.auth.uid);
     const submissionReference = assignmentReference.collection('submissions').doc(request.auth.uid);
+    const notificationJobReference = db.collection('notificationJobs').doc();
     const result = await db.runTransaction(async (transaction) => {
       const [studySnapshot, assignmentSnapshot, memberSnapshot, submissionSnapshot] = await Promise.all([
         transaction.get(studyReference),
@@ -1089,6 +1261,32 @@ export const submitAssignment = onCall(
           { pendingAssignments: FieldValue.increment(-1) },
           { merge: true },
         );
+        const leaderId = studySnapshot.get('leaderId');
+        if (typeof leaderId === 'string' && leaderId.length > 0) {
+          const displayName = memberSnapshot.get('displayName');
+          const memberName =
+            typeof displayName === 'string' && displayName.trim().length > 0
+              ? displayName.trim()
+              : '스터디원';
+          const assignmentTitle = assignmentSnapshot.get('title');
+          transaction.create(notificationJobReference, {
+            body:
+              typeof assignmentTitle === 'string' &&
+              assignmentTitle.trim().length > 0
+                ? assignmentTitle
+                : '과제',
+            createdAt: FieldValue.serverTimestamp(),
+            createdBy: request.auth!.uid,
+            data: {
+              assignmentId: input.assignmentId,
+              screen: 'assignment-detail',
+              studyId: input.studyId,
+            },
+            recipientUserIds: [leaderId],
+            status: 'pending',
+            title: `${memberName}님이 과제를 제출했어요`,
+          });
+        }
       }
       transaction.update(assignmentReference, {
         updatedAt: FieldValue.serverTimestamp(),
@@ -1425,6 +1623,49 @@ async function persistInAppNotifications(
     });
   }
   await batch.commit();
+}
+
+async function deleteAssignmentNotifications(
+  studyId: string,
+  assignmentId: string,
+) {
+  const jobSnapshots = await db
+    .collection('notificationJobs')
+    .where('data.assignmentId', '==', assignmentId)
+    .get();
+  const pendingJobs = jobSnapshots.docs.filter(
+    (snapshot) =>
+      snapshot.get('data.studyId') === studyId &&
+      snapshot.get('status') === 'pending',
+  );
+  if (pendingJobs.length > 0) {
+    const jobWriter = db.bulkWriter();
+    for (const job of pendingJobs) {
+      jobWriter.update(job.ref, {
+        finishedAt: FieldValue.serverTimestamp(),
+        status: 'cancelled',
+      });
+    }
+    await jobWriter.close();
+  }
+
+  const notificationSnapshots = await db
+    .collectionGroup('notifications')
+    .where('data.assignmentId', '==', assignmentId)
+    .get();
+  const references = notificationSnapshots.docs
+    .filter((snapshot) => snapshot.get('data.studyId') === studyId)
+    .map((snapshot) => snapshot.ref);
+
+  if (references.length === 0) {
+    return;
+  }
+
+  const bulkWriter = db.bulkWriter();
+  for (const reference of references) {
+    bulkWriter.delete(reference);
+  }
+  await bulkWriter.close();
 }
 
 async function claimJob(

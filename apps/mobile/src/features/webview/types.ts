@@ -30,8 +30,10 @@ export type WebViewMessage =
       title: string;
     }
   | { type: 'delete-notice'; noticeId: string }
+  | { type: 'delete-assignment'; assignmentId: string }
   | { type: 'delete-study'; studyName: string }
   | { type: 'edit-notice'; noticeId: string }
+  | { type: 'edit-assignment'; assignmentId: string }
   | { type: 'exit-study' }
   | { type: 'join-study'; inviteUrl: string }
   | { type: 'mark-notice-read'; noticeId: string }
@@ -55,6 +57,15 @@ export type WebViewMessage =
   | { type: 'send-assignment-reminder'; assignmentId: string; memberIds: string[] }
   | { type: 'study-selected'; studyId: string }
   | { type: 'submit-assignment'; assignmentId: string; content: string; link?: string }
+  | {
+      type: 'update-assignment';
+      assignmentId: string;
+      content: string;
+      deadlineAt: string;
+      reminderAts: string[];
+      submissionInstructions: string;
+      title: string;
+    }
   | {
       type: 'update-notice';
       content: string;
