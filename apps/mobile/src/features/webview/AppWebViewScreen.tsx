@@ -248,9 +248,9 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
       />
       {isStudySelected && !isSubpageOpen ? (
         <BottomTabBar activeTab={activeTab} onTabPress={navigateToTab} />
-      ) : !isSubpageOpen ? (
+      ) : (
         <View style={styles.tabPlaceholder} />
-      ) : null}
+      )}
     </SafeAreaView>
   );
 }
