@@ -1,0 +1,135 @@
+.notification-screen {
+  color: #172033;
+}
+
+.notification-header {
+  display: flex;
+  height: 64px;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.notification-header h1 {
+  margin: 0 0 0 8px;
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.45px;
+  line-height: 28px;
+}
+
+.notification-back-button {
+  display: grid;
+  width: 24px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.notification-back-button img {
+  width: 24px;
+  height: 24px;
+}
+
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+}
+
+.notification-card {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 95px;
+  align-items: flex-start;
+  padding: 16px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  color: #172033;
+  cursor: pointer;
+  text-align: left;
+}
+
+.notification-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+}
+
+.notification-icon img {
+  width: 18px;
+  height: 18px;
+}
+
+.notification-icon.is-reminder {
+  border-radius: 999px;
+  background: #00c471;
+}
+
+.notification-icon.is-reminder img {
+  filter: brightness(0) invert(1);
+}
+
+.notification-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  margin-left: 11px;
+}
+
+.notification-copy strong {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-copy > span {
+  overflow: hidden;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 13px;
+  letter-spacing: -0.325px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-copy small {
+  color: rgba(15, 23, 42, 0.4);
+  font-size: 12px;
+  letter-spacing: -0.3px;
+  line-height: 18px;
+}
+
+.notification-unread {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  margin: 5px 0 0 8px;
+  border-radius: 999px;
+  background: #00c471;
+}
+
+.notification-state {
+  margin: 0;
+  padding: 28px 0;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.notification-state.is-error {
+  color: #f04452;
+}

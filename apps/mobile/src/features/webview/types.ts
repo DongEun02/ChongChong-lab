@@ -1,6 +1,7 @@
 export type AppTab = 'home' | 'notices' | 'assignments' | 'members';
 
 export type WebViewMessage =
+  | { type: 'close-notifications' }
   | { type: 'close-create-notice' }
   | { type: 'close-create-study' }
   | { type: 'close-join-study' }
@@ -28,6 +29,12 @@ export type WebViewMessage =
   | { type: 'open-create-notice' }
   | { type: 'open-join-study' }
   | { type: 'open-notifications' }
+  | {
+      type: 'open-notification';
+      notificationId: string;
+      noticeId?: string;
+      studyId?: string;
+    }
   | { type: 'open-profile' }
   | { type: 'remove-study-member'; displayName: string; memberId: string }
   | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
