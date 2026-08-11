@@ -22,7 +22,7 @@ export type StudyPayload = {
   memberCount: number;
   memberLimit: number;
   name: string;
-  role: 'leader';
+  role: 'leader' | 'member';
 };
 
 export type StudyListPayload = Omit<StudyPayload, 'role'> & {
@@ -37,6 +37,15 @@ export async function createStudy(input: CreateStudyInput) {
     { study: StudyPayload }
   >(getFunctions(undefined, 'us-central1'), 'createStudy');
   const response = await callable(input);
+  return response.data.study;
+}
+
+export async function joinStudy(inviteUrl: string) {
+  const callable = httpsCallable<
+    { inviteUrl: string },
+    { study: StudyPayload }
+  >(getFunctions(undefined, 'us-central1'), 'joinStudy');
+  const response = await callable({ inviteUrl });
   return response.data.study;
 }
 
