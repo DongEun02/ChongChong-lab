@@ -52,6 +52,11 @@ export const createStudy = onCall(
     const memberReference = studyReference
       .collection('members')
       .doc(request.auth.uid);
+    const userStudyReference = db
+      .collection('users')
+      .doc(request.auth.uid)
+      .collection('studies')
+      .doc(studyReference.id);
     const displayName = parseDisplayName(
       request.auth.token.name,
       request.auth.token.email,
@@ -74,6 +79,17 @@ export const createStudy = onCall(
         role: 'leader',
         status: 'active',
         userId: request.auth!.uid,
+      });
+      transaction.create(userStudyReference, {
+        createdAt: FieldValue.serverTimestamp(),
+        description: input.description,
+        memberCount: 1,
+        memberLimit: input.memberLimit,
+        name: input.name,
+        pendingAssignments: 0,
+        role: 'leader',
+        studyId: studyReference.id,
+        unreadNotices: 0,
       });
     });
 
