@@ -26,6 +26,11 @@ import {
   type NoticePayload,
 } from '../notices/noticeData';
 import {
+  readNotification,
+  subscribeToNotifications,
+  type NotificationPayload,
+} from '../notifications/notificationData';
+import {
   createStudy,
   deleteStudy,
   joinStudy,
@@ -126,6 +131,15 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     );
   }
 
+  if (value.type === 'open-notification') {
+    return (
+      'notificationId' in value &&
+      typeof value.notificationId === 'string' &&
+      (!('noticeId' in value) || typeof value.noticeId === 'string') &&
+      (!('studyId' in value) || typeof value.studyId === 'string')
+    );
+  }
+
   if (value.type === 'remove-study-member') {
     return (
       'memberId' in value &&
@@ -137,6 +151,7 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
 
   return [
     'close-create-study',
+    'close-notifications',
     'close-create-notice',
     'close-join-study',
     'close-notice',
@@ -213,11 +228,25 @@ function createMemberDataScript(
   return `window.dispatchEvent(new CustomEvent('chongchong:members', { detail: ${detail} })); true;`;
 }
 
+function createNotificationDataScript(
+  status: 'error' | 'ready',
+  notifications: NotificationPayload[] = [],
+) {
+  const detail = JSON.stringify({ notifications, status }).replaceAll(
+    '<',
+    '\\u003c',
+  );
+  return `window.dispatchEvent(new CustomEvent('chongchong:notifications', { detail: ${detail} })); true;`;
+}
+
 export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps) {
   const webViewRef = useRef<WebView>(null);
   const latestNoticesRef = useRef<NoticePayload[] | undefined>(undefined);
   const latestStudiesRef = useRef<StudyListPayload[] | undefined>(undefined);
   const latestMembersRef = useRef<StudyMemberPayload[] | undefined>(undefined);
+  const latestNotificationsRef = useRef<NotificationPayload[] | undefined>(
+    undefined,
+  );
   const deletingStudyIdRef = useRef<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [isStudySelected, setIsStudySelected] = useState(false);
@@ -274,6 +303,24 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
       },
     );
   }, [selectedStudyId, user.uid]);
+
+  useEffect(() => {
+    return subscribeToNotifications(
+      user.uid,
+      (notifications) => {
+        latestNotificationsRef.current = notifications;
+        webViewRef.current?.injectJavaScript(
+          createNotificationDataScript('ready', notifications),
+        );
+      },
+      (error) => {
+        console.warn('Notification subscription error', error);
+        webViewRef.current?.injectJavaScript(
+          createNotificationDataScript('error'),
+        );
+      },
+    );
+  }, [user.uid]);
 
   useEffect(() => {
     if (!selectedStudyId) {
@@ -374,6 +421,35 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
 
         if (message.type === 'open-create-study') {
           setIsSubpageOpen(true);
+          return;
+        }
+
+        if (message.type === 'open-notifications') {
+          setIsSubpageOpen(true);
+          return;
+        }
+
+        if (message.type === 'close-notifications') {
+          setIsSubpageOpen(false);
+          return;
+        }
+
+        if (message.type === 'open-notification') {
+          if (message.studyId && message.noticeId) {
+            setIsStudySelected(true);
+            setIsSubpageOpen(true);
+            setSelectedStudyId(message.studyId);
+            setActiveTab('notices');
+          }
+          void readNotification(message.notificationId).catch(
+            (error: unknown) => {
+              console.warn('Notification read error', error);
+              Alert.alert(
+                '알림을 열지 못했어요',
+                '읽음 상태를 저장하지 못했어요. 다시 시도해 주세요.',
+              );
+            },
+          );
           return;
         }
 
@@ -674,8 +750,6 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
             });
           return;
         }
-
-        Alert.alert('알림', '알림 목록 화면은 별도 페이지 PR에서 연결할게요.');
       } catch {
         // 타입이 지정되지 않은 WebView 메시지는 무시합니다.
       }
@@ -731,6 +805,14 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           if (latestMembersRef.current) {
             webViewRef.current?.injectJavaScript(
               createMemberDataScript('ready', latestMembersRef.current),
+            );
+          }
+          if (latestNotificationsRef.current) {
+            webViewRef.current?.injectJavaScript(
+              createNotificationDataScript(
+                'ready',
+                latestNotificationsRef.current,
+              ),
             );
           }
         }}
