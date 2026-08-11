@@ -31,6 +31,7 @@ import {
   type StudyPayload,
 } from '../studies/studyData';
 import {
+  removeStudyMember,
   subscribeToStudyMembers,
   type StudyMemberPayload,
 } from '../studies/memberData';
@@ -89,6 +90,15 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
       'memberIds' in value &&
       Array.isArray(value.memberIds) &&
       value.memberIds.every((memberId) => typeof memberId === 'string')
+    );
+  }
+
+  if (value.type === 'remove-study-member') {
+    return (
+      'memberId' in value &&
+      typeof value.memberId === 'string' &&
+      'displayName' in value &&
+      typeof value.displayName === 'string'
     );
   }
 
@@ -181,6 +191,22 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
       user.uid,
       (studies) => {
         latestStudiesRef.current = studies;
+        if (
+          selectedStudyId &&
+          !studies.some((study) => study.id === selectedStudyId)
+        ) {
+          setIsStudySelected(false);
+          setIsSubpageOpen(false);
+          setSelectedStudyId(undefined);
+          setActiveTab('home');
+          webViewRef.current?.injectJavaScript(
+            "window.dispatchEvent(new CustomEvent('chongchong:exit-study')); true;",
+          );
+          Alert.alert(
+            '스터디에서 나왔어요',
+            '리드가 회원님을 스터디 멤버에서 제외했어요.',
+          );
+        }
         webViewRef.current?.injectJavaScript(
           createStudyListScript('ready', studies),
         );
@@ -190,7 +216,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         webViewRef.current?.injectJavaScript(createStudyListScript('error'));
       },
     );
-  }, [user.uid]);
+  }, [selectedStudyId, user.uid]);
 
   useEffect(() => {
     if (!selectedStudyId) {
@@ -371,6 +397,45 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
               console.warn('Invite link copy error', error);
               Alert.alert('복사 실패', '초대 링크를 복사하지 못했어요.');
             });
+          return;
+        }
+
+        if (message.type === 'remove-study-member') {
+          if (!selectedStudyId) {
+            Alert.alert('방출 실패', '선택한 스터디 정보를 찾지 못했어요.');
+            return;
+          }
+
+          Alert.alert(
+            '스터디원을 방출할까요?',
+            `${message.displayName}님은 이 스터디를 더 이상 이용할 수 없어요.`,
+            [
+              { style: 'cancel', text: '취소' },
+              {
+                onPress: () => {
+                  void removeStudyMember(selectedStudyId, message.memberId)
+                    .then(() => {
+                      Alert.alert(
+                        '방출 완료',
+                        `${message.displayName}님을 스터디에서 방출했어요.`,
+                      );
+                    })
+                    .catch((error: unknown) => {
+                      console.warn('Study member removal error', error);
+                      Alert.alert(
+                        '방출하지 못했어요',
+                        getCallableErrorMessage(
+                          error,
+                          '잠시 후 다시 시도해 주세요.',
+                        ),
+                      );
+                    });
+                },
+                style: 'destructive',
+                text: '방출하기',
+              },
+            ],
+          );
           return;
         }
 

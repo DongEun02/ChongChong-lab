@@ -60,6 +60,7 @@ type NativeMessage =
   | { type: 'open-join-study' }
   | { type: 'open-notifications' }
   | { type: 'open-profile' }
+  | { type: 'remove-study-member'; displayName: string; memberId: string }
   | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
   | { type: 'study-selected'; studyId: string }
 
@@ -397,6 +398,21 @@ function App() {
     void navigator.clipboard?.writeText(inviteUrl)
   }
 
+  const removeMember = (member: StudyMember) => {
+    if (window.ReactNativeWebView) {
+      postToNative({
+        displayName: member.displayName,
+        memberId: member.id,
+        type: 'remove-study-member',
+      })
+      return
+    }
+
+    setMembers((current) =>
+      current.filter((candidate) => candidate.id !== member.id),
+    )
+  }
+
   const openNotice = (noticeId: string) => {
     setSelectedNoticeId(noticeId)
     postToNative({ type: 'open-notice', noticeId })
@@ -471,6 +487,7 @@ function App() {
       study={selectedStudy}
       onBack={closeStudy}
       onCopyInviteLink={copyInviteLink}
+      onRemoveMember={removeMember}
       onOpenNotice={openNotice}
       onOpenNotifications={() => postToNative({ type: 'open-notifications' })}
     />
@@ -575,6 +592,7 @@ type StudyPageProps = {
   study: StudySummary
   onBack: () => void
   onCopyInviteLink: (inviteUrl: string) => void
+  onRemoveMember: (member: StudyMember) => void
   onOpenNotice: (noticeId: string) => void
   onOpenNotifications: () => void
 }
@@ -589,16 +607,19 @@ function StudyPage({
   study,
   onBack,
   onCopyInviteLink,
+  onRemoveMember,
   onOpenNotice,
   onOpenNotifications,
 }: StudyPageProps) {
   if (activeTab === 'members') {
     return (
       <MemberListPage
+        canRemoveMembers={study.role === 'leader'}
         inviteUrl={`https://chongchong.app/join/${study.id}`}
         members={members}
         onBack={onBack}
         onCopyInviteLink={onCopyInviteLink}
+        onRemoveMember={onRemoveMember}
         status={memberDataStatus}
       />
     )
