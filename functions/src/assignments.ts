@@ -48,7 +48,7 @@ export function parseCreateAssignmentRequest(
   const deadlineAt = parseFutureDate(value.deadlineAt, '마감 시각', now);
   const reminderAts = parseReminderAts(value.reminderAts, now, deadlineAt);
   return {
-    content: parseText(value.content, '과제 내용', 1, 3_000),
+    content: parseText(value.content, '과제 내용', 1, 10_000),
     deadlineAt,
     reminderAts,
     studyId: parseDocumentId(value.studyId, '스터디'),
@@ -58,7 +58,7 @@ export function parseCreateAssignmentRequest(
       1,
       1_000,
     ),
-    title: parseText(value.title, '과제 제목', 1, 50),
+    title: parseText(value.title, '과제 제목', 1, 15),
   };
 }
 
@@ -71,7 +71,7 @@ export function parseSubmitAssignmentRequest(
 
   return {
     assignmentId: parseDocumentId(value.assignmentId, '과제'),
-    content: parseText(value.content, '제출 내용', 1, 3_000),
+    content: parseText(value.content, '제출 내용', 1, 10_000),
     link: parseOptionalHttpUrl(value.link),
     studyId: parseDocumentId(value.studyId, '스터디'),
   };
@@ -140,8 +140,8 @@ export function resolveAssignmentReminderSchedule(
 }
 
 function parseReminderAts(value: unknown, now: Date, deadlineAt: Date) {
-  if (!Array.isArray(value) || value.length < 1 || value.length > 5) {
-    throw new Error('리마인드 시각은 1개 이상 5개 이하로 설정해 주세요.');
+  if (!Array.isArray(value) || value.length > 5) {
+    throw new Error('리마인드 시각은 최대 5개까지 설정할 수 있습니다.');
   }
   const reminderAts = value.map((candidate) => {
     const reminderAt = parseFutureDate(candidate, '리마인드 시각', now);
