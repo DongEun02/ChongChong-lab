@@ -34,6 +34,7 @@ export type WebViewMessage =
   | { type: 'edit-notice'; noticeId: string }
   | { type: 'exit-study' }
   | { type: 'join-study'; inviteUrl: string }
+  | { type: 'mark-notice-read'; noticeId: string }
   | { type: 'open-notice'; noticeId: string }
   | { type: 'open-create-study' }
   | { type: 'open-create-notice' }

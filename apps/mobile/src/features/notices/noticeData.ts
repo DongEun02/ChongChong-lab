@@ -15,6 +15,7 @@ export type NoticePayload = {
   body: string;
   content: string;
   id: string;
+  isReadByCurrentUser: boolean;
   members: {
     id: string;
     lastReminderLabel?: string;
@@ -55,6 +56,7 @@ type NoticeRecord = {
 
 export function subscribeToStudyNotices(
   studyId: string,
+  currentUserId: string,
   onData: (notices: NoticePayload[]) => void,
   onError: (error: Error) => void,
 ) {
@@ -67,7 +69,11 @@ export function subscribeToStudyNotices(
       return;
     }
 
-    onData(notices.map((notice) => createNoticePayload(notice, members!)));
+    onData(
+      notices.map((notice) =>
+        createNoticePayload(notice, members!, currentUserId),
+      ),
+    );
   };
 
   const unsubscribeMembers = onSnapshot(
@@ -122,6 +128,15 @@ export async function requestNoticeReminder(
   return response.data;
 }
 
+export async function markNoticeRead(studyId: string, noticeId: string) {
+  const callable = httpsCallable<
+    { noticeId: string; studyId: string },
+    { noticeId: string; wasUpdated: boolean }
+  >(getFunctions(undefined, 'us-central1'), 'markNoticeRead');
+  const response = await callable({ noticeId, studyId });
+  return response.data;
+}
+
 export async function createNotice(
   studyId: string,
   input: CreateNoticeInput,
@@ -159,6 +174,7 @@ export async function deleteNotice(studyId: string, noticeId: string) {
 function createNoticePayload(
   notice: NoticeRecord,
   members: MemberRecord[],
+  currentUserId: string,
 ): NoticePayload {
   const readers = new Set(notice.readByUserIds);
   const memberPayload = members.map((member) => ({
@@ -175,6 +191,7 @@ function createNoticePayload(
     body: notice.body,
     content: notice.body,
     id: notice.id,
+    isReadByCurrentUser: readers.has(currentUserId),
     members: memberPayload,
     publishedAt: notice.publishedAt.toISOString(),
     readCount,

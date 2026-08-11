@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import backIcon from '../../assets/figma/back.svg'
 import deleteIcon from '../../assets/figma/delete.svg'
@@ -17,7 +17,9 @@ type NoticeDetailPageProps = {
   onBack: () => void
   onDelete: (noticeId: string) => void
   onEdit: (noticeId: string) => void
+  onRead: (noticeId: string) => void
   onSendReminder: (noticeId: string, memberIds: string[]) => void
+  role: 'leader' | 'member'
 }
 
 export function NoticeDetailPage({
@@ -27,13 +29,41 @@ export function NoticeDetailPage({
   onBack,
   onDelete,
   onEdit,
+  onRead,
   onSendReminder,
+  role,
 }: NoticeDetailPageProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [hasRequestedDelete, setHasRequestedDelete] = useState(false)
+  const hasRequestedRead = useRef(false)
+  const readMarkerRef = useRef<HTMLDivElement>(null)
   const readMembers = notice.members.filter((member) => member.read)
   const unreadMembers = notice.members.filter((member) => !member.read)
   const readRatio = (readMembers.length / notice.members.length) * 100
+
+  useEffect(() => {
+    hasRequestedRead.current = false
+  }, [notice.id])
+
+  useEffect(() => {
+    const marker = readMarkerRef.current
+    if (role !== 'member' || notice.isReadByCurrentUser || !marker) {
+      return
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (
+        entries.some((entry) => entry.isIntersecting) &&
+        !hasRequestedRead.current
+      ) {
+        hasRequestedRead.current = true
+        onRead(notice.id)
+      }
+    })
+    observer.observe(marker)
+
+    return () => observer.disconnect()
+  }, [notice.id, notice.isReadByCurrentUser, onRead, role])
 
   const sendReminder = (memberIds: string[]) => {
     onSendReminder(notice.id, memberIds)
@@ -69,8 +99,9 @@ export function NoticeDetailPage({
         <strong>공지</strong>
       </header>
 
-      <div className="notice-detail-content">
-        <section aria-labelledby="read-dashboard-title" className="read-dashboard">
+      <div className={`notice-detail-content ${role === 'member' ? 'is-member' : ''}`}>
+        {role === 'leader' ? (
+          <section aria-labelledby="read-dashboard-title" className="read-dashboard">
           <div className="read-dashboard-heading">
             <strong id="read-dashboard-title">확인 현황</strong>
             <span>{notice.reminderAtLabel}</span>
@@ -134,7 +165,8 @@ export function NoticeDetailPage({
           >
             모두에게 보내기
           </button>
-        </section>
+          </section>
+        ) : null}
 
         <article className="notice-article">
           <h1>{notice.title}</h1>
@@ -147,7 +179,12 @@ export function NoticeDetailPage({
           <p>{notice.body}</p>
         </article>
 
-        <div className="notice-detail-actions">
+        {role === 'member' ? (
+          <div aria-hidden="true" className="notice-read-marker" ref={readMarkerRef} />
+        ) : null}
+
+        {role === 'leader' ? (
+          <div className="notice-detail-actions">
           <button onClick={() => onEdit(notice.id)} type="button">
             <img alt="" src={editIcon} />
             수정
@@ -156,7 +193,8 @@ export function NoticeDetailPage({
             <img alt="" src={deleteIcon} />
             삭제
           </button>
-        </div>
+          </div>
+        ) : null}
       </div>
 
       {isDeleteDialogOpen ? (

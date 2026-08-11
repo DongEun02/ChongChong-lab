@@ -28,6 +28,7 @@ import {
 import {
   createNotice,
   deleteNotice,
+  markNoticeRead,
   requestNoticeReminder,
   subscribeToStudyNotices,
   updateNotice,
@@ -141,7 +142,8 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
   if (
     value.type === 'open-notice' ||
     value.type === 'edit-notice' ||
-    value.type === 'delete-notice'
+    value.type === 'delete-notice' ||
+    value.type === 'mark-notice-read'
   ) {
     return 'noticeId' in value && typeof value.noticeId === 'string';
   }
@@ -400,6 +402,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
 
     return subscribeToStudyNotices(
       selectedStudyId,
+      user.uid,
       (notices) => {
         latestNoticesRef.current = notices;
         webViewRef.current?.injectJavaScript(
@@ -411,7 +414,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         webViewRef.current?.injectJavaScript(createNoticeDataScript('error'));
       },
     );
-  }, [selectedStudyId]);
+  }, [selectedStudyId, user.uid]);
 
   useEffect(() => {
     if (!selectedStudyId) {
@@ -743,6 +746,23 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
 
         if (message.type === 'open-notice') {
           setIsSubpageOpen(true);
+          return;
+        }
+
+        if (message.type === 'mark-notice-read') {
+          if (!selectedStudyId) {
+            return;
+          }
+
+          void markNoticeRead(selectedStudyId, message.noticeId).catch(
+            (error: unknown) => {
+              console.warn('Notice read error', error);
+              Alert.alert(
+                '읽음 처리에 실패했어요',
+                getCallableErrorMessage(error, '잠시 후 다시 시도해 주세요.'),
+              );
+            },
+          );
           return;
         }
 
