@@ -57,14 +57,20 @@ export function AuthenticatedScreen({
       <StatusBar style="dark" />
 
       {onClose ? (
-        <Pressable
-          accessibilityLabel="마이페이지 닫기"
-          accessibilityRole="button"
-          onPress={onClose}
-          style={styles.closeButton}
-        >
-          <Text style={styles.closeLabel}>닫기</Text>
-        </Pressable>
+        <View style={styles.header}>
+          <Pressable
+            accessibilityLabel="마이페이지 닫기"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed && styles.pressedButton,
+            ]}
+          >
+            <Text style={styles.closeLabel}>닫기</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       <View style={styles.content}>
@@ -120,12 +126,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  header: {
+    height: 56,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
   closeButton: {
-    position: 'absolute',
-    zIndex: 1,
-    top: 16,
-    right: 20,
-    paddingVertical: 8,
+    minWidth: 44,
+    height: 44,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   closeLabel: {
     color: '#172033',
