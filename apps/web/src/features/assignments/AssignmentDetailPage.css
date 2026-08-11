@@ -1,0 +1,148 @@
+.assignment-detail-screen { color:#172033; overflow-y:auto; }
+.assignment-detail-content { display:flex; flex-direction:column; gap:12px; padding:20px 20px 34px; }
+.assignment-detail-content h2 { margin:4px 0 0; font-size:24px; line-height:34px; }
+.assignment-progress-card { padding:19px; border:1px solid rgba(15,23,42,.08); border-radius:16px; }
+.assignment-progress-header { display:flex; justify-content:space-between; font-size:16px; }
+.assignment-progress-header small { color:rgba(15,23,42,.55); font-size:12px; }
+.assignment-progress-card > p { margin:8px 0 2px; color:rgba(15,23,42,.55); }
+.assignment-progress-card > p strong { color:#00c471; font-size:34px; }
+.assignment-progress-track { overflow:hidden; height:8px; border-radius:999px; background:#ececee; }
+.assignment-progress-track i { display:block; height:100%; border-radius:999px; background:#00c471; }
+.assignment-progress-label { display:block; margin-top:10px; color:#00c471; font-size:12px; }
+.assignment-progress-label.is-muted { color:rgba(15,23,42,.55); }
+.submitted-member-chips { display:flex; margin-top:6px; gap:6px; }
+.submitted-member-chips span { padding:5px 10px; border-radius:999px; background:#ececee; font-size:12px; }
+.unsubmitted-member { display:flex; min-height:44px; align-items:center; justify-content:space-between; margin-top:4px; }
+.unsubmitted-member > span { display:flex; flex-direction:column; font-size:14px; }
+.unsubmitted-member b { font-weight:400; }
+.unsubmitted-member small { color:rgba(15,23,42,.55); font-size:12px; }
+.unsubmitted-member button { display:flex; align-items:center; gap:6px; border:0; background:transparent; color:#00c471; }
+.unsubmitted-member button img { width:16px; height:16px; }
+.remind-all-button { width:100%; height:44px; margin-top:8px; border:0; border-radius:12px; background:#00c471; color:#fff; }
+.assignment-info-card { padding:20px; border-radius:12px; background:#f9f9f9; }
+.assignment-info-card strong { display:flex; align-items:center; color:#00c471; font-size:14px; font-weight:400; }
+.assignment-info-card strong img { width:16px; height:16px; margin-right:4px; }
+.assignment-info-card p { margin:8px 0 0; color:rgba(15,23,42,.55); font-size:14px; line-height:20px; white-space:pre-wrap; }
+.assignment-info-card a { color:#00c471; overflow-wrap:anywhere; }
+.my-submission, .leader-submissions { display:flex; flex-direction:column; gap:12px; margin-top:24px; }
+.my-submission h3, .leader-submissions h3 { margin:0; font-size:18px; font-weight:400; }
+.my-submission > small { color:rgba(15,23,42,.4); font-size:12px; }
+.leader-submission-list { display:flex; flex-direction:column; margin:0; padding:0; gap:8px; list-style:none; }
+.leader-submission-list button { display:flex; box-sizing:border-box; width:100%; min-height:72px; align-items:center; padding:12px 16px; border:1px solid rgba(15,23,42,.08); border-radius:12px; background:#fff; text-align:left; }
+.leader-submission-list button > img { width:20px; height:20px; margin-left:auto; opacity:.45; }
+.leader-submission-avatar, .leader-submission-profile > span { display:grid; flex:0 0 auto; width:40px; height:40px; place-items:center; border-radius:50%; background:#e8fbf3; color:#00a85d; font-size:16px; font-weight:600; }
+.leader-submission-copy { display:flex; min-width:0; flex:1; flex-direction:column; margin-left:12px; gap:3px; }
+.leader-submission-copy strong { overflow:hidden; color:#172033; font-size:15px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.leader-submission-copy small { color:rgba(15,23,42,.5); font-size:12px; line-height:18px; }
+.leader-submission-detail { display:flex; flex-direction:column; padding:24px 20px 34px; gap:12px; }
+.leader-submission-profile { display:flex; align-items:center; margin-bottom:8px; padding:4px 0 12px; }
+.leader-submission-profile > span { width:48px; height:48px; font-size:18px; }
+.leader-submission-profile div { min-width:0; margin-left:12px; }
+.leader-submission-profile h2 { margin:0; overflow:hidden; font-size:20px; line-height:28px; text-overflow:ellipsis; white-space:nowrap; }
+.leader-submission-profile small { color:rgba(15,23,42,.5); font-size:12px; line-height:18px; }
+.assignment-submit-form { display:flex; flex-direction:column; gap:16px; }
+.assignment-submit-form label { display:flex; flex-direction:column; gap:8px; font-size:16px; }
+.assignment-submit-form b { color:#00c471; font-weight:400; }
+.assignment-submit-form textarea, .assignment-submit-form input { box-sizing:border-box; width:100%; padding:14px 16px; border:1px solid rgba(15,23,42,.08); border-radius:12px; font:inherit; outline:none; }
+.assignment-submit-form textarea { height:100px; resize:none; }
+.assignment-submit-form input { height:56px; }
+.assignment-submit-form textarea:focus, .assignment-submit-form input:focus { border-color:#00c471; }
+.assignment-link-error { margin-top:-12px; color:#de5e56; font-size:12px; }
+.assignment-detail-actions {
+  display: grid;
+  margin-top: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.assignment-detail-actions button {
+  display: inline-flex;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  background: #fff;
+  color: #172033;
+}
+
+.assignment-detail-actions img {
+  width: 16px;
+  height: 16px;
+}
+
+.assignment-detail-actions .delete-button,
+.assignment-delete-actions .confirm-delete {
+  color: #de5e56;
+}
+
+.assignment-detail-actions .delete-button {
+  border-color: rgba(235, 57, 57, 0.25);
+}
+
+.assignment-delete-overlay {
+  position: fixed;
+  z-index: 10;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.assignment-delete-dialog {
+  overflow: hidden;
+  width: min(310px, 100%);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.assignment-delete-copy {
+  padding: 24px 20px 20px;
+  text-align: center;
+}
+
+.assignment-delete-copy h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 28px;
+}
+
+.assignment-delete-copy p {
+  margin: 8px 0 0;
+  color: rgba(15, 23, 42, 0.7);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.assignment-delete-copy small {
+  display: block;
+  margin-top: 8px;
+  color: #de5e56;
+  font-size: 12px;
+}
+
+.assignment-delete-actions {
+  display: grid;
+  height: 52px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.assignment-delete-actions button {
+  border: 0;
+  background: #fff;
+  color: rgba(15, 23, 42, 0.4);
+}
+
+.assignment-delete-actions button + button {
+  border-left: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.assignment-delete-actions button:disabled {
+  opacity: 0.55;
+}

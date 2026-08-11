@@ -1,0 +1,98 @@
+.join-study-header {
+  position: relative;
+  display: flex;
+  height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+}
+
+.join-study-header .brand-mark {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.join-study-header .text-button {
+  right: 20px;
+}
+
+.join-study-form {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px 32px;
+}
+
+.join-study-form h1 {
+  margin: 0;
+  color: #111;
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.45px;
+  line-height: 28px;
+}
+
+.join-study-form p {
+  margin: 0;
+  color: rgba(15, 23, 42, 0.4);
+  font-size: 14px;
+  letter-spacing: -0.35px;
+  line-height: 20px;
+}
+
+.join-study-form input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 54px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid #00c471;
+  border-radius: 12px;
+  background: #fff;
+  color: rgba(15, 23, 42, 0.7);
+  font: inherit;
+  font-size: 16px;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+  outline: none;
+}
+
+.join-study-form input[aria-invalid='true'] {
+  border-color: #f04452;
+}
+
+.join-study-form input::placeholder {
+  color: rgba(15, 23, 42, 0.4);
+}
+
+.join-study-form small {
+  min-height: 18px;
+  margin: 4px 2px 0;
+  color: rgba(15, 23, 42, 0.4);
+  font-size: 12px;
+  letter-spacing: -0.3px;
+  line-height: 18px;
+}
+
+.join-study-form small.is-error {
+  color: #f04452;
+}
+
+.join-study-form button {
+  height: 52px;
+  margin: 20px 2px 0;
+  border: 0;
+  border-radius: 12px;
+  background: #00c471;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.join-study-form button:disabled {
+  cursor: default;
+  opacity: 0.38;
+}

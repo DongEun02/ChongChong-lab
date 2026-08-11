@@ -1,0 +1,132 @@
+.notice-list-page {
+  display: flex;
+  min-height: calc(100svh - 64px);
+  flex-direction: column;
+  padding: 20px;
+}
+
+.notice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notice-data-state {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.notice-data-state.is-error {
+  background: rgba(235, 57, 57, 0.08);
+  color: #b42318;
+}
+
+.notice-card {
+  display: flex;
+  width: 100%;
+  min-height: 168px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 19px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+  text-align: left;
+}
+
+.notice-badges {
+  display: flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 4px;
+}
+
+.read-badge,
+.reminder-badge {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.3px;
+  line-height: 18px;
+}
+
+.read-badge {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  color: #00c471;
+  background: #fff;
+}
+
+.read-badge.is-complete {
+  border-color: #00c471;
+  background: #00c471;
+  color: #fff;
+}
+
+.reminder-badge {
+  gap: 4px;
+  background: #ececee;
+  color: #111;
+}
+
+.reminder-badge img {
+  width: 12px;
+  height: 12px;
+}
+
+.notice-card strong {
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+}
+
+.notice-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 4px;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 14px;
+  letter-spacing: -0.35px;
+  line-height: 20px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.notice-card small {
+  margin-top: auto;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.create-notice-button {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 12px;
+  border: 1px solid #00c471;
+  border-radius: 12px;
+  background: #00c471;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.notice-card:focus-visible,
+.create-notice-button:focus-visible {
+  outline: 2px solid #172033;
+  outline-offset: 2px;
+}

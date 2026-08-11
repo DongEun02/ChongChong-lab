@@ -1,0 +1,175 @@
+.member-screen {
+  background: #f9f9f9;
+}
+
+.member-header {
+  position: relative;
+  display: flex;
+  height: 64px;
+  align-items: center;
+  background: #fff;
+}
+
+.member-header .icon-button {
+  margin-left: 10px;
+}
+
+.member-header h1 {
+  position: absolute;
+  left: 50%;
+  margin: 0;
+  color: #172033;
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.45px;
+  line-height: 28px;
+  transform: translateX(-50%);
+}
+
+.member-content {
+  padding: 20px;
+}
+
+.member-content h2 {
+  margin: 0 0 8px;
+  color: #172033;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+}
+
+.member-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  gap: 8px;
+  list-style: none;
+}
+
+.member-card {
+  display: flex;
+  height: 68px;
+  align-items: center;
+  padding: 0 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.member-avatar {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.member-name {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+  margin-left: 12px;
+  color: #172033;
+  font-size: 16px;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leader-crown {
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+}
+
+.member-actions {
+  display: flex;
+  flex: 0 0 auto;
+  margin-left: auto;
+  gap: 10px;
+}
+
+.member-actions button {
+  padding: 8px 0 8px 12px;
+  border: 0;
+  background: transparent;
+  color: #00c471;
+  cursor: pointer;
+  font-size: 14px;
+  letter-spacing: -0.35px;
+  line-height: 20px;
+}
+
+.member-state {
+  margin: 0;
+  padding: 24px 0;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.member-state.is-error {
+  color: #f04452;
+}
+
+.invite-section {
+  margin-top: 40px;
+}
+
+.invite-section > p {
+  margin: 0 0 8px;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.invite-link-card {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  align-items: center;
+  padding: 0 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: #fff;
+  color: #172033;
+  cursor: pointer;
+  text-align: left;
+}
+
+.invite-link-card span {
+  overflow: hidden;
+  flex: 1;
+  font-size: 14px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invite-link-card img {
+  width: 24px;
+  height: 24px;
+  margin-left: 12px;
+}
+
+.delete-study-button {
+  width: 100%;
+  height: 52px;
+  margin-top: 20px;
+  border: 0;
+  border-radius: 12px;
+  background: #de5e56;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+}

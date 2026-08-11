@@ -1,0 +1,91 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/pushTokens/{tokenId} {
+      allow read, delete: if isOwner(userId) && isValidTokenId(tokenId);
+      allow create, update: if isOwner(userId)
+        && isValidTokenId(tokenId)
+        && isValidPushToken();
+    }
+
+    // Callable Function이 생성한 사용자별 스터디 인덱스는 본인만 조회합니다.
+    match /users/{userId}/studies/{studyId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // 서버가 생성한 사용자별 알림은 본인만 조회합니다.
+    match /users/{userId}/notifications/{notificationId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // Firebase Admin SDK만 알림 발송 작업을 생성하고 처리합니다.
+    match /notificationJobs/{jobId} {
+      allow read, write: if false;
+    }
+
+    match /studies/{studyId} {
+      allow read: if isStudyMember(studyId);
+      allow write: if false;
+
+      match /members/{userId} {
+        allow read: if isStudyMember(studyId);
+        allow write: if false;
+      }
+
+      match /notices/{noticeId} {
+        allow read: if isStudyMember(studyId);
+        allow write: if false;
+      }
+
+      match /assignments/{assignmentId} {
+        allow read: if isStudyMember(studyId);
+        allow write: if false;
+
+        match /submissions/{userId} {
+          allow read: if isStudyMember(studyId) &&
+            (isOwner(userId) || isStudyLeader(studyId));
+          allow write: if false;
+        }
+      }
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isStudyMember(studyId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/studies/$(studyId)/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/studies/$(studyId)/members/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isStudyLeader(studyId) {
+      return request.auth != null
+        && get(/databases/$(database)/documents/studies/$(studyId)).data.leaderId == request.auth.uid
+        && isStudyMember(studyId);
+    }
+
+    function isValidTokenId(tokenId) {
+      return tokenId.matches('^[a-f0-9]{64}$');
+    }
+
+    function isValidPushToken() {
+      return request.resource.data.keys().hasOnly([
+          'enabled',
+          'platform',
+          'provider',
+          'token',
+          'updatedAt'
+        ])
+        && request.resource.data.enabled == true
+        && request.resource.data.platform == 'android'
+        && request.resource.data.provider == 'fcm'
+        && request.resource.data.token is string
+        && request.resource.data.token.size() <= 4096
+        && request.resource.data.updatedAt == request.time;
+    }
+  }
+}
