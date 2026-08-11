@@ -32,15 +32,14 @@ export function parseCreateNoticeRequest(
   }
 
   const studyId = parseDocumentId(value.studyId);
-  const title = parseText(value.title, '공지 제목', 1, 50);
-  const content = parseText(value.content, '공지 내용', 1, 3_000);
+  const title = parseText(value.title, '공지 제목', 1, 15);
+  const content = parseText(value.content, '공지 내용', 1, 10_000);
 
   if (
     !Array.isArray(value.reminderAts) ||
-    value.reminderAts.length < 1 ||
     value.reminderAts.length > MAX_REMINDER_COUNT
   ) {
-    throw new Error('리마인드 시각은 1개 이상 5개 이하로 설정해 주세요.');
+    throw new Error('리마인드 시각은 최대 5개까지 설정할 수 있습니다.');
   }
 
   const latestAllowedTime = now.getTime() + MAX_REMINDER_DISTANCE_MS;

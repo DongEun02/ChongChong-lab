@@ -22,6 +22,9 @@ type Props = {
   onSubmit: (input: CreateAssignmentInput) => void
 }
 
+const MAX_TITLE_LENGTH = 15
+const MAX_CONTENT_LENGTH = 10_000
+
 export function CreateAssignmentPage({ errorMessage, initialValue, isSubmitting, mode = 'create', onBack, onSubmit }: Props) {
   const [title, setTitle] = useState(initialValue?.title ?? '')
   const [content, setContent] = useState(initialValue?.content ?? '')
@@ -32,7 +35,7 @@ export function CreateAssignmentPage({ errorMessage, initialValue, isSubmitting,
       .map((value) => new Date(value))
       .filter((date) => date > new Date())
       .map(toLocalDateTime)
-    return futureReminders.length > 0 ? futureReminders : ['']
+    return futureReminders
   })
   const minimum = toLocalDateTime(new Date())
   const deadlineDate = new Date(deadline)
@@ -40,7 +43,8 @@ export function CreateAssignmentPage({ errorMessage, initialValue, isSubmitting,
     const date = new Date(value)
     return value !== '' && date > new Date() && date < deadlineDate
   })
-  const canSubmit = title.trim().length > 0 && content.trim().length > 0 &&
+  const canSubmit = title.trim().length > 0 && title.trim().length <= MAX_TITLE_LENGTH &&
+    content.trim().length > 0 && content.trim().length <= MAX_CONTENT_LENGTH &&
     submissionInstructions.trim().length > 0 && validDates && !isSubmitting
 
   const submit = (event: FormEvent) => {
@@ -62,16 +66,16 @@ export function CreateAssignmentPage({ errorMessage, initialValue, isSubmitting,
         <h1>과제</h1>
       </header>
       <form className="create-assignment-form" onSubmit={submit}>
-        <Field label="제목" required><input maxLength={50} onChange={(event) => setTitle(event.target.value)} placeholder="과제 제목을 입력해주세요" value={title} /></Field>
-        <Field label="내용" required><textarea maxLength={3000} onChange={(event) => setContent(event.target.value)} placeholder="설명을 입력해주세요" value={content} /></Field>
+        <Field label="제목" required><input maxLength={MAX_TITLE_LENGTH} onChange={(event) => setTitle(event.target.value)} placeholder="과제 제목을 입력해주세요" value={title} /></Field>
+        <Field label="내용" required><textarea maxLength={MAX_CONTENT_LENGTH} onChange={(event) => setContent(event.target.value)} placeholder="설명을 입력해주세요" value={content} /></Field>
         <Field label="제출 방법" required><textarea className="is-short" maxLength={1000} onChange={(event) => setSubmissionInstructions(event.target.value)} placeholder="링크 등 제출 방법을 입력해주세요" value={submissionInstructions} /></Field>
         <Field label="마감 시각" required><input min={minimum} onChange={(event) => setDeadline(event.target.value)} type="datetime-local" value={deadline} /></Field>
         <fieldset className="assignment-reminders">
-          <legend>리마인드 시각 <b>*</b></legend>
+          <legend>리마인드 시각 <small>(선택)</small></legend>
           {reminders.map((value, index) => (
             <label className="assignment-date-input" key={index}>
               <input aria-label={`리마인드 시각 ${index + 1}`} max={deadline || undefined} min={minimum} onChange={(event) => setReminders((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} type="datetime-local" value={value} />
-              {reminders.length > 1 ? <button aria-label={`리마인드 ${index + 1} 삭제`} onClick={() => setReminders((current) => current.filter((_, itemIndex) => itemIndex !== index))} type="button"><img alt="" src={reminderRemoveIcon} /></button> : null}
+              {reminders.length > 0 ? <button aria-label={`리마인드 ${index + 1} 삭제`} onClick={() => setReminders((current) => current.filter((_, itemIndex) => itemIndex !== index))} type="button"><img alt="" src={reminderRemoveIcon} /></button> : null}
             </label>
           ))}
           {reminders.length < 5 ? <button aria-label="리마인드 추가" className="assignment-add-reminder" onClick={() => setReminders((current) => [...current, ''])} type="button"><img alt="" src={reminderPlusIcon} /></button> : null}

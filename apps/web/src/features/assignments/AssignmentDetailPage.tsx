@@ -93,7 +93,7 @@ export function AssignmentDetailPage({ assignment, deleteError, errorMessage, is
               </>
             ) : (
               <form className="assignment-submit-form" onSubmit={submit}>
-                <label>내용 <b>*</b><textarea maxLength={3000} onChange={(event) => setContent(event.target.value)} value={content} /></label>
+                <label>내용 <b>*</b><textarea maxLength={10_000} onChange={(event) => setContent(event.target.value)} value={content} /></label>
                 <label>링크<input aria-invalid={!validLink} maxLength={2000} onChange={(event) => setLink(event.target.value)} placeholder="https://" value={link} /></label>
                 {!validLink ? <small className="assignment-link-error">주소가 올바르지 않아요</small> : null}
                 {errorMessage ? <p className="assignment-form-error">{errorMessage}</p> : null}

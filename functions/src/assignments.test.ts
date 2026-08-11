@@ -36,6 +36,27 @@ test('마감 이후 리마인드를 거부한다', () => {
   }, NOW), /마감 시각보다 빨라야/);
 });
 
+test('과제 생성 요청은 리마인드를 선택으로 처리하고 입력 길이를 검증한다', () => {
+  const result = parseCreateAssignmentRequest({
+    content: '내'.repeat(10_000),
+    deadlineAt: '2026-08-12T03:00:00.000Z',
+    reminderAts: [],
+    studyId: 'study-1',
+    submissionInstructions: '링크 제출',
+    title: '제'.repeat(15),
+  }, NOW);
+  assert.deepEqual(result.reminderAts, []);
+  assert.equal(result.content.length, 10_000);
+  assert.throws(() => parseCreateAssignmentRequest({
+    content: '내용',
+    deadlineAt: '2026-08-12T03:00:00.000Z',
+    reminderAts: [],
+    studyId: 'study-1',
+    submissionInstructions: '링크 제출',
+    title: '제'.repeat(16),
+  }, NOW), /과제 제목은 1자 이상 15자 이하/);
+});
+
 test('과제 제출 링크와 리마인드 수신자를 검증한다', () => {
   assert.equal(parseSubmitAssignmentRequest({
     assignmentId: 'assignment-1',
@@ -43,6 +64,16 @@ test('과제 제출 링크와 리마인드 수신자를 검증한다', () => {
     link: 'https://github.com/example/pr/1',
     studyId: 'study-1',
   }).link, 'https://github.com/example/pr/1');
+  assert.equal(parseSubmitAssignmentRequest({
+    assignmentId: 'assignment-1',
+    content: '내'.repeat(10_000),
+    studyId: 'study-1',
+  }).content.length, 10_000);
+  assert.throws(() => parseSubmitAssignmentRequest({
+    assignmentId: 'assignment-1',
+    content: '내'.repeat(10_001),
+    studyId: 'study-1',
+  }), /제출 내용은 1자 이상 10000자 이하/);
   assert.deepEqual(parseAssignmentReminderRequest({
     assignmentId: 'assignment-1',
     recipientUserIds: ['member-1', 'member-1'],
