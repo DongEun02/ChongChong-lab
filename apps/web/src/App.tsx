@@ -18,6 +18,11 @@ import {
   type CreateStudyInput,
 } from './features/studies/CreateStudyPage'
 import { JoinStudyPage } from './features/studies/JoinStudyPage'
+import { MemberListPage } from './features/studies/MemberListPage'
+import {
+  parseStudyMembers,
+  type StudyMember,
+} from './features/studies/members'
 import {
   NOTICE_DETAILS,
   parseNoticePayloads,
@@ -28,6 +33,7 @@ import './App.css'
 type TabId = 'home' | 'notices' | 'assignments' | 'members'
 type NoticeDataStatus = 'error' | 'loading' | 'ready'
 type StudyDataStatus = 'error' | 'loading' | 'ready'
+type MemberDataStatus = 'error' | 'loading' | 'ready'
 type StudySummary = {
   description: string
   id: string
@@ -42,6 +48,7 @@ type NativeMessage =
   | { type: 'close-notice' }
   | { type: 'close-create-study' }
   | { type: 'close-join-study' }
+  | { type: 'copy-invite-link'; inviteUrl: string }
   | ({ type: 'create-study' } & CreateStudyInput)
   | { type: 'create-notice' }
   | { type: 'delete-notice'; noticeId: string }
@@ -74,6 +81,14 @@ const STUDY = {
   pendingAssignments: 1,
 }
 
+const PREVIEW_MEMBERS: StudyMember[] = [
+  { displayName: '김동은', id: 'preview-leader', role: 'leader' },
+  { displayName: '이총총', id: 'preview-member-1', role: 'member' },
+  { displayName: '박바니', id: 'preview-member-2', role: 'member' },
+  { displayName: '최토끼', id: 'preview-member-3', role: 'member' },
+  { displayName: '정총총', id: 'preview-member-4', role: 'member' },
+]
+
 function postToNative(message: NativeMessage) {
   window.ReactNativeWebView?.postMessage(JSON.stringify(message))
 }
@@ -99,6 +114,12 @@ function App() {
     window.ReactNativeWebView ? [] : NOTICE_DETAILS,
   )
   const [noticeDataStatus, setNoticeDataStatus] = useState<NoticeDataStatus>(
+    window.ReactNativeWebView ? 'loading' : 'ready',
+  )
+  const [members, setMembers] = useState<StudyMember[]>(
+    window.ReactNativeWebView ? [] : PREVIEW_MEMBERS,
+  )
+  const [memberDataStatus, setMemberDataStatus] = useState<MemberDataStatus>(
     window.ReactNativeWebView ? 'loading' : 'ready',
   )
   const displayName = window.__CHONGCHONG_SESSION__?.displayName?.trim() || '바니'
@@ -177,6 +198,8 @@ function App() {
           setIsCreateStudyOpen(false)
           setIsStudyOpen(true)
           setActiveTab('home')
+          setMembers([])
+          setMemberDataStatus('loading')
         }
       }
     }
@@ -210,6 +233,8 @@ function App() {
           setIsJoinStudyOpen(false)
           setIsStudyOpen(true)
           setActiveTab('home')
+          setMembers([])
+          setMemberDataStatus('loading')
         }
       }
     }
@@ -234,6 +259,26 @@ function App() {
       }
     }
     window.addEventListener('chongchong:studies', handleStudies)
+    const handleMembers = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) {
+        return
+      }
+
+      if (detail.status === 'error') {
+        setMemberDataStatus('error')
+        return
+      }
+
+      if (detail.status === 'ready' && 'members' in detail) {
+        const parsedMembers = parseStudyMembers(detail.members)
+        if (parsedMembers) {
+          setMembers(parsedMembers)
+          setMemberDataStatus('ready')
+        }
+      }
+    }
+    window.addEventListener('chongchong:members', handleMembers)
 
     return () => {
       window.removeEventListener('chongchong:navigate', handleNavigation)
@@ -244,6 +289,7 @@ function App() {
       window.removeEventListener('chongchong:study-create-result', handleStudyCreateResult)
       window.removeEventListener('chongchong:study-join-result', handleStudyJoinResult)
       window.removeEventListener('chongchong:studies', handleStudies)
+      window.removeEventListener('chongchong:members', handleMembers)
     }
   }, [])
 
@@ -251,6 +297,8 @@ function App() {
     setSelectedStudy(study)
     setIsStudyOpen(true)
     setActiveTab('home')
+    setMembers(window.ReactNativeWebView ? [] : PREVIEW_MEMBERS)
+    setMemberDataStatus(window.ReactNativeWebView ? 'loading' : 'ready')
     postToNative({ type: 'study-selected', studyId: study.id })
   }
 
@@ -340,6 +388,15 @@ function App() {
     postToNative({ type: 'exit-study' })
   }
 
+  const copyInviteLink = (inviteUrl: string) => {
+    if (window.ReactNativeWebView) {
+      postToNative({ inviteUrl, type: 'copy-invite-link' })
+      return
+    }
+
+    void navigator.clipboard?.writeText(inviteUrl)
+  }
+
   const openNotice = (noticeId: string) => {
     setSelectedNoticeId(noticeId)
     postToNative({ type: 'open-notice', noticeId })
@@ -407,10 +464,13 @@ function App() {
     <StudyPage
       activeTab={activeTab}
       displayName={displayName}
+      memberDataStatus={memberDataStatus}
+      members={members}
       noticeDataStatus={noticeDataStatus}
       notices={notices}
       study={selectedStudy}
       onBack={closeStudy}
+      onCopyInviteLink={copyInviteLink}
       onOpenNotice={openNotice}
       onOpenNotifications={() => postToNative({ type: 'open-notifications' })}
     />
@@ -508,10 +568,13 @@ function StudyList({
 type StudyPageProps = {
   activeTab: TabId
   displayName: string
+  memberDataStatus: MemberDataStatus
+  members: StudyMember[]
   noticeDataStatus: NoticeDataStatus
   notices: NoticeDetail[]
   study: StudySummary
   onBack: () => void
+  onCopyInviteLink: (inviteUrl: string) => void
   onOpenNotice: (noticeId: string) => void
   onOpenNotifications: () => void
 }
@@ -519,13 +582,28 @@ type StudyPageProps = {
 function StudyPage({
   activeTab,
   displayName,
+  memberDataStatus,
+  members,
   noticeDataStatus,
   notices,
   study,
   onBack,
+  onCopyInviteLink,
   onOpenNotice,
   onOpenNotifications,
 }: StudyPageProps) {
+  if (activeTab === 'members') {
+    return (
+      <MemberListPage
+        inviteUrl={`https://chongchong.app/join/${study.id}`}
+        members={members}
+        onBack={onBack}
+        onCopyInviteLink={onCopyInviteLink}
+        status={memberDataStatus}
+      />
+    )
+  }
+
   return (
     <main className="screen study-screen">
       <header className="study-header">
