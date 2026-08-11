@@ -23,6 +23,7 @@ import {
 import {
   parseCreateStudyRequest,
   parseJoinStudyRequest,
+  parseRemoveStudyMemberRequest,
 } from './studies.js';
 
 if (getApps().length === 0) {
@@ -158,7 +159,10 @@ export const joinStudy = onCall(
         transaction.get(membersCollection),
         transaction.get(userStudiesCollection),
       ]);
-      if (!memberSnapshot.exists && userStudySnapshots.size >= 50) {
+      const alreadyIndexed = userStudySnapshots.docs.some(
+        (snapshot) => snapshot.id === input.studyId,
+      );
+      if (!alreadyIndexed && userStudySnapshots.size >= 50) {
         throw new HttpsError(
           'resource-exhausted',
           '참여할 수 있는 스터디는 최대 50개입니다.',
@@ -232,6 +236,118 @@ export const joinStudy = onCall(
     });
 
     return { study };
+  },
+);
+
+export const removeStudyMember = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseRemoveStudyMemberRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    if (input.memberId === request.auth.uid) {
+      throw new HttpsError(
+        'failed-precondition',
+        '스터디 리드는 자신을 방출할 수 없습니다.',
+      );
+    }
+
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const membersCollection = studyReference.collection('members');
+    const actorReference = membersCollection.doc(request.auth.uid);
+    const targetReference = membersCollection.doc(input.memberId);
+
+    const result = await db.runTransaction(async (transaction) => {
+      const [studySnapshot, actorSnapshot, targetSnapshot, memberSnapshots] =
+        await Promise.all([
+          transaction.get(studyReference),
+          transaction.get(actorReference),
+          transaction.get(targetReference),
+          transaction.get(membersCollection),
+        ]);
+
+      if (!studySnapshot.exists || studySnapshot.get('status') !== 'active') {
+        throw new HttpsError('not-found', '스터디를 찾을 수 없습니다.');
+      }
+      if (
+        studySnapshot.get('leaderId') !== request.auth!.uid ||
+        actorSnapshot.get('status') !== 'active' ||
+        actorSnapshot.get('role') !== 'leader'
+      ) {
+        throw new HttpsError(
+          'permission-denied',
+          '스터디 리드만 멤버를 방출할 수 있습니다.',
+        );
+      }
+      if (
+        !targetSnapshot.exists ||
+        targetSnapshot.get('status') !== 'active' ||
+        targetSnapshot.get('role') !== 'member'
+      ) {
+        throw new HttpsError(
+          'failed-precondition',
+          '방출할 수 있는 스터디원을 찾지 못했습니다.',
+        );
+      }
+
+      const activeMembers = memberSnapshots.docs.filter(
+        (snapshot) => snapshot.get('status') === 'active',
+      );
+      const remainingMembers = activeMembers.filter(
+        (snapshot) => snapshot.id !== input.memberId,
+      );
+      const memberCount = remainingMembers.length;
+
+      transaction.update(targetReference, {
+        removedAt: FieldValue.serverTimestamp(),
+        removedBy: request.auth!.uid,
+        status: 'removed',
+      });
+      transaction.delete(
+        db
+          .collection('users')
+          .doc(input.memberId)
+          .collection('studies')
+          .doc(input.studyId),
+      );
+      transaction.update(studyReference, {
+        memberCount,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      for (const member of remainingMembers) {
+        transaction.set(
+          db
+            .collection('users')
+            .doc(member.id)
+            .collection('studies')
+            .doc(input.studyId),
+          { memberCount },
+          { merge: true },
+        );
+      }
+
+      return {
+        displayName: targetSnapshot.get('displayName'),
+        memberCount,
+      };
+    });
+
+    return result;
   },
 );
 

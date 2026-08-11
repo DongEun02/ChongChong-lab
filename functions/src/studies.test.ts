@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   parseCreateStudyRequest,
   parseJoinStudyRequest,
+  parseRemoveStudyMemberRequest,
 } from './studies.js';
 
 test('parseCreateStudyRequest은 입력 앞뒤 공백을 제거한다', () => {
@@ -71,5 +72,20 @@ test('parseJoinStudyRequest은 외부 도메인과 잘못된 경로를 거부한
   assert.throws(
     () => parseJoinStudyRequest({ inviteUrl: 'chongchong.app/study-1' }),
     /총총에서 발급된/,
+  );
+});
+
+test('parseRemoveStudyMemberRequest은 스터디와 멤버 ID를 검증한다', () => {
+  assert.deepEqual(
+    parseRemoveStudyMemberRequest({ memberId: 'member_1', studyId: 'study-1' }),
+    { memberId: 'member_1', studyId: 'study-1' },
+  );
+  assert.throws(
+    () =>
+      parseRemoveStudyMemberRequest({
+        memberId: 'members/member-1',
+        studyId: 'study-1',
+      }),
+    /멤버 정보가 올바르지/,
   );
 });
