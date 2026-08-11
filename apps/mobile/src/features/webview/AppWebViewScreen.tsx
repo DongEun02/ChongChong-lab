@@ -19,6 +19,7 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { BottomTabBar } from './BottomTabBar';
 import type { AppTab, WebViewMessage } from './types';
 import {
+  createNotice,
   requestNoticeReminder,
   subscribeToStudyNotices,
   type NoticePayload,
@@ -72,6 +73,18 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     return 'inviteUrl' in value && typeof value.inviteUrl === 'string';
   }
 
+  if (value.type === 'create-notice') {
+    return (
+      'title' in value &&
+      typeof value.title === 'string' &&
+      'content' in value &&
+      typeof value.content === 'string' &&
+      'reminderAts' in value &&
+      Array.isArray(value.reminderAts) &&
+      value.reminderAts.every((reminderAt) => typeof reminderAt === 'string')
+    );
+  }
+
   if (value.type === 'copy-invite-link') {
     return 'inviteUrl' in value && typeof value.inviteUrl === 'string';
   }
@@ -109,11 +122,12 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
 
   return [
     'close-create-study',
+    'close-create-notice',
     'close-join-study',
     'close-notice',
-    'create-notice',
     'exit-study',
     'open-create-study',
+    'open-create-notice',
     'open-join-study',
     'open-notifications',
     'open-profile',
@@ -148,6 +162,15 @@ function createStudyJoinResultScript(
 ) {
   const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
   return `window.dispatchEvent(new CustomEvent('chongchong:study-join-result', { detail: ${serialized} })); true;`;
+}
+
+function createNoticeResultScript(
+  detail:
+    | { status: 'error'; message: string }
+    | { status: 'success'; notice: { id: string; title: string } },
+) {
+  const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
+  return `window.dispatchEvent(new CustomEvent('chongchong:notice-create-result', { detail: ${serialized} })); true;`;
 }
 
 function createStudyListScript(
@@ -330,12 +353,22 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           return;
         }
 
+        if (message.type === 'open-create-notice') {
+          setIsSubpageOpen(true);
+          return;
+        }
+
         if (message.type === 'open-join-study') {
           setIsSubpageOpen(true);
           return;
         }
 
         if (message.type === 'close-create-study') {
+          setIsSubpageOpen(false);
+          return;
+        }
+
+        if (message.type === 'close-create-notice') {
           setIsSubpageOpen(false);
           return;
         }
@@ -546,7 +579,39 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         }
 
         if (message.type === 'create-notice') {
-          Alert.alert('공지 작성', '공지 작성 화면은 별도 페이지 PR에서 연결할게요.');
+          if (!selectedStudyId) {
+            webViewRef.current?.injectJavaScript(
+              createNoticeResultScript({
+                message: '선택한 스터디 정보를 찾지 못했어요.',
+                status: 'error',
+              }),
+            );
+            return;
+          }
+
+          void createNotice(selectedStudyId, {
+            content: message.content,
+            reminderAts: message.reminderAts,
+            title: message.title,
+          })
+            .then((notice) => {
+              setIsSubpageOpen(false);
+              webViewRef.current?.injectJavaScript(
+                createNoticeResultScript({ notice, status: 'success' }),
+              );
+            })
+            .catch((error: unknown) => {
+              console.warn('Notice creation error', error);
+              webViewRef.current?.injectJavaScript(
+                createNoticeResultScript({
+                  message: getCallableErrorMessage(
+                    error,
+                    '공지를 올리지 못했어요. 잠시 후 다시 시도해 주세요.',
+                  ),
+                  status: 'error',
+                }),
+              );
+            });
           return;
         }
 

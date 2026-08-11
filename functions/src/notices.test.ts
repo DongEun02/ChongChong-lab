@@ -1,0 +1,93 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { parseCreateNoticeRequest } from './notices.js';
+
+const NOW = new Date('2026-08-11T00:00:00.000Z');
+
+test('parseCreateNoticeRequest은 입력을 정리하고 리마인드를 정렬한다', () => {
+  assert.deepEqual(
+    parseCreateNoticeRequest(
+      {
+        content: '  공지 내용  ',
+        reminderAts: [
+          '2026-08-11T02:00:00.000Z',
+          '2026-08-11T01:00:00.000Z',
+        ],
+        studyId: 'study-1',
+        title: '  공지 제목  ',
+      },
+      NOW,
+    ),
+    {
+      content: '공지 내용',
+      reminderAts: [
+        new Date('2026-08-11T01:00:00.000Z'),
+        new Date('2026-08-11T02:00:00.000Z'),
+      ],
+      studyId: 'study-1',
+      title: '공지 제목',
+    },
+  );
+});
+
+test('parseCreateNoticeRequest은 과거와 중복 리마인드를 거부한다', () => {
+  assert.throws(
+    () =>
+      parseCreateNoticeRequest(
+        {
+          content: '내용',
+          reminderAts: ['2026-08-10T23:59:00.000Z'],
+          studyId: 'study-1',
+          title: '제목',
+        },
+        NOW,
+      ),
+    /현재부터 1년 이내/,
+  );
+  assert.throws(
+    () =>
+      parseCreateNoticeRequest(
+        {
+          content: '내용',
+          reminderAts: [
+            '2026-08-11T01:00:00.000Z',
+            '2026-08-11T01:00:00.000Z',
+          ],
+          studyId: 'study-1',
+          title: '제목',
+        },
+        NOW,
+      ),
+    /중복/,
+  );
+});
+
+test('parseCreateNoticeRequest은 필수값과 길이를 검증한다', () => {
+  assert.throws(
+    () =>
+      parseCreateNoticeRequest(
+        {
+          content: '',
+          reminderAts: ['2026-08-11T01:00:00.000Z'],
+          studyId: 'study-1',
+          title: '제목',
+        },
+        NOW,
+      ),
+    /공지 내용/,
+  );
+  assert.throws(
+    () =>
+      parseCreateNoticeRequest(
+        {
+          content: '내용',
+          reminderAts: ['2026-08-11T01:00:00.000Z'],
+          studyId: 'studies/study-1',
+          title: '제목',
+        },
+        NOW,
+      ),
+    /스터디 정보/,
+  );
+});
