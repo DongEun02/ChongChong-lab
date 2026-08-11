@@ -14,8 +14,29 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /studies/{studyId} {
+      allow read: if isStudyMember(studyId);
+      allow write: if false;
+
+      match /members/{userId} {
+        allow read: if isStudyMember(studyId);
+        allow write: if false;
+      }
+
+      match /notices/{noticeId} {
+        allow read: if isStudyMember(studyId);
+        allow write: if false;
+      }
+    }
+
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isStudyMember(studyId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/studies/$(studyId)/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/studies/$(studyId)/members/$(request.auth.uid)).data.status == 'active';
     }
 
     function isValidTokenId(tokenId) {
