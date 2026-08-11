@@ -48,23 +48,27 @@ export const sendNoticeReminder = onCall(
     }
 
     const studyReference = db.collection('studies').doc(input.studyId);
-    const noticeReference = studyReference
-      .collection('notices')
-      .doc(input.noticeId);
-    const [studySnapshot, noticeSnapshot, memberSnapshots] = await Promise.all([
-      studyReference.get(),
-      noticeReference.get(),
-      studyReference.collection('members').get(),
-    ]);
-
-    if (!studySnapshot.exists || !noticeSnapshot.exists) {
-      throw new HttpsError('not-found', '스터디 또는 공지를 찾을 수 없습니다.');
+    const studySnapshot = await studyReference.get();
+    if (!studySnapshot.exists) {
+      throw new HttpsError('not-found', '스터디를 찾을 수 없습니다.');
     }
     if (studySnapshot.get('leaderId') !== request.auth.uid) {
       throw new HttpsError(
         'permission-denied',
         '스터디 리드만 리마인드를 보낼 수 있습니다.',
       );
+    }
+
+    const noticeReference = studyReference
+      .collection('notices')
+      .doc(input.noticeId);
+    const [noticeSnapshot, memberSnapshots] = await Promise.all([
+      noticeReference.get(),
+      studyReference.collection('members').get(),
+    ]);
+
+    if (!noticeSnapshot.exists) {
+      throw new HttpsError('not-found', '공지를 찾을 수 없습니다.');
     }
 
     const activeMemberIds = memberSnapshots.docs
@@ -87,10 +91,15 @@ export const sendNoticeReminder = onCall(
       );
     }
 
+    const noticeTitle = noticeSnapshot.get('title');
+    if (typeof noticeTitle !== 'string' || noticeTitle.trim().length === 0) {
+      throw new HttpsError('failed-precondition', '공지 제목이 올바르지 않습니다.');
+    }
+
     const jobReference = db.collection('notificationJobs').doc();
     await db.runTransaction(async (transaction) => {
       transaction.create(jobReference, {
-        body: noticeSnapshot.get('title'),
+        body: noticeTitle,
         createdAt: FieldValue.serverTimestamp(),
         createdBy: request.auth!.uid,
         data: {

@@ -87,3 +87,14 @@ pnpm dlx firebase-tools deploy --only functions:deliverPushNotification --projec
 | `data` | map | `{ "path": "/notices" }` |
 
 문서 생성 후 `status`가 `sent`로 바뀌고 `successCount`가 1 이상이면 FCM 발송에 성공한 것입니다. `failed`인 경우 같은 문서의 `errorMessage`와 Cloud Functions 로그를 확인합니다. 앱 클라이언트는 보안 규칙에 의해 `notificationJobs`를 직접 생성할 수 없습니다.
+
+공지 실데이터와 리마인드 Callable을 반영할 때는 저장소 루트에서 다음을
+배포합니다.
+
+```bash
+pnpm dlx firebase-tools deploy --only firestore:rules,functions --project chongchong-86716
+```
+
+배포 전 `studies/{studyId}`의 `leaderId`, `members` 하위 컬렉션의 활성 멤버,
+`notices` 하위 컬렉션의 공지 문서가 준비되어 있어야 실제 리마인드 발송을
+검증할 수 있습니다.
