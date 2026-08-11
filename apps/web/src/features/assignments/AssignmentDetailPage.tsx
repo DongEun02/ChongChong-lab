@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 
 import backIcon from '../../assets/figma/back.svg'
+import chevronRightIcon from '../../assets/figma/chevron-right.svg'
 import clipboardIcon from '../../assets/figma/clipboard.svg'
 import deleteIcon from '../../assets/figma/delete.svg'
 import editIcon from '../../assets/figma/edit.svg'
@@ -27,6 +28,7 @@ export function AssignmentDetailPage({ assignment, deleteError, errorMessage, is
   const [isEditing, setIsEditing] = useState(!assignment.submission)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [hasRequestedDelete, setHasRequestedDelete] = useState(false)
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string>()
   const [content, setContent] = useState(assignment.submission?.content ?? '')
   const [link, setLink] = useState(assignment.submission?.link ?? '')
   const validLink = link.trim() === '' || /^https?:\/\//i.test(link.trim())
@@ -37,6 +39,9 @@ export function AssignmentDetailPage({ assignment, deleteError, errorMessage, is
   }
 
   const unsubmitted = assignment.members.filter((member) => !member.submitted)
+  const selectedSubmission = assignment.submissions.find(
+    (submission) => submission.userId === selectedSubmissionId,
+  )
   const openDeleteDialog = () => {
     setHasRequestedDelete(false)
     setIsDeleteDialogOpen(true)
@@ -48,6 +53,44 @@ export function AssignmentDetailPage({ assignment, deleteError, errorMessage, is
     setHasRequestedDelete(true)
     onDelete(assignment.id)
   }
+
+  if (role === 'leader' && selectedSubmission) {
+    return (
+      <main className="screen assignment-detail-screen">
+        <header className="assignment-subpage-header">
+          <button
+            aria-label="제출 내역으로 돌아가기"
+            className="icon-button"
+            onClick={() => setSelectedSubmissionId(undefined)}
+            type="button"
+          >
+            <img alt="" src={backIcon} />
+          </button>
+          <h1>제출 상세</h1>
+        </header>
+        <div className="leader-submission-detail">
+          <div className="leader-submission-profile">
+            <span aria-hidden="true">
+              {selectedSubmission.userName.trim().slice(0, 1) || '?'}
+            </span>
+            <div>
+              <h2>{selectedSubmission.userName}</h2>
+              <small>{formatDateTime(selectedSubmission.submittedAt)} 제출</small>
+            </div>
+          </div>
+          <InfoCard label="내용">{selectedSubmission.content}</InfoCard>
+          {selectedSubmission.link ? (
+            <InfoCard icon="link" label="링크">
+              <a href={selectedSubmission.link} rel="noreferrer" target="_blank">
+                {selectedSubmission.link}
+              </a>
+            </InfoCard>
+          ) : null}
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="screen assignment-detail-screen">
       <header className="assignment-subpage-header">
@@ -104,7 +147,28 @@ export function AssignmentDetailPage({ assignment, deleteError, errorMessage, is
         ) : (
           <section className="leader-submissions">
             <h3>제출 내역</h3>
-            {assignment.submissions.length ? assignment.submissions.map((submission) => <InfoCard key={submission.userId} label={`${submission.userName} · ${formatDateTime(submission.submittedAt)}`}>{submission.content}{submission.link ? <><br /><a href={submission.link} rel="noreferrer" target="_blank">{submission.link}</a></> : null}</InfoCard>) : <p>아직 제출 내역이 없어요.</p>}
+            {assignment.submissions.length ? (
+              <ul className="leader-submission-list">
+                {assignment.submissions.map((submission) => (
+                  <li key={submission.userId}>
+                    <button
+                      aria-label={`${submission.userName}님의 제출 상세 보기`}
+                      onClick={() => setSelectedSubmissionId(submission.userId)}
+                      type="button"
+                    >
+                      <span aria-hidden="true" className="leader-submission-avatar">
+                        {submission.userName.trim().slice(0, 1) || '?'}
+                      </span>
+                      <span className="leader-submission-copy">
+                        <strong>{submission.userName}</strong>
+                        <small>{formatDateTime(submission.submittedAt)} 제출</small>
+                      </span>
+                      <img alt="" src={chevronRightIcon} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : <p>아직 제출 내역이 없어요.</p>}
           </section>
         )}
       </div>
