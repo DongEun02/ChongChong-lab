@@ -14,6 +14,18 @@ EAS 프로젝트 연결 ID는 `apps/mobile/app.json`의 `extra.eas.projectId`에
 
 Google Play 제출 빌드에서는 로컬 주소를 사용할 수 없으므로 웹 앱을 먼저 배포하고 production 환경 변수 설정을 확인합니다. WebView는 설정한 웹 앱과 동일한 origin만 내부에서 열고, 외부 URL은 시스템 브라우저로 전달합니다.
 
+Firebase Hosting 배포 파일은 `apps/web/dist`를 사용합니다. 모든 PR을 머지한 뒤 저장소 루트에서 웹 빌드와 Firebase 리소스를 한 번에 배포합니다.
+
+```bash
+git switch develop
+git pull origin develop
+pnpm install --frozen-lockfile
+pnpm build:web
+pnpm dlx firebase-tools deploy --only hosting,firestore:rules,functions --project chongchong-86716
+```
+
+배포가 끝나면 출력된 `https://chongchong-86716.web.app` 주소를 EAS의 preview와 production 환경 변수 `EXPO_PUBLIC_WEB_APP_URL`에 등록한 뒤 모바일 빌드를 생성합니다.
+
 ## Android 빌드 프로필
 
 `apps/mobile`에서 다음 명령을 실행합니다.
