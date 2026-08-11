@@ -79,9 +79,11 @@ type NativeMessage =
   | ({ type: 'create-study' } & CreateStudyInput)
   | ({ type: 'create-notice' } & CreateNoticeInput)
   | ({ type: 'create-assignment' } & CreateAssignmentInput)
+  | { type: 'delete-assignment'; assignmentId: string }
   | { type: 'delete-notice'; noticeId: string }
   | { type: 'delete-study'; studyName: string }
   | { type: 'edit-notice'; noticeId: string }
+  | { type: 'edit-assignment'; assignmentId: string }
   | { type: 'exit-study' }
   | { type: 'join-study'; inviteUrl: string }
   | { type: 'mark-notice-read'; noticeId: string }
@@ -105,6 +107,7 @@ type NativeMessage =
   | { type: 'send-assignment-reminder'; assignmentId: string; memberIds: string[] }
   | { type: 'study-selected'; studyId: string }
   | { type: 'submit-assignment'; assignmentId: string; content: string; link?: string }
+  | ({ type: 'update-assignment'; assignmentId: string } & CreateAssignmentInput)
   | ({ type: 'update-notice'; noticeId: string } & CreateNoticeInput)
 
 declare global {
@@ -143,7 +146,7 @@ function postToNative(message: NativeMessage) {
 
 function App() {
   const [isStudyOpen, setIsStudyOpen] = useState(
-    ['assignments', 'assignment-detail', 'assignment-submit', 'create-assignment', 'delete-notice'].includes(PAGE_PREVIEW ?? ''),
+    ['assignments', 'assignment-detail', 'assignment-submit', 'create-assignment', 'edit-assignment', 'delete-assignment', 'delete-notice'].includes(PAGE_PREVIEW ?? ''),
   )
   const [isCreateStudyOpen, setIsCreateStudyOpen] = useState(false)
   const [isCreatingStudy, setIsCreatingStudy] = useState(false)
@@ -200,15 +203,22 @@ function App() {
       window.ReactNativeWebView ? 'loading' : 'ready',
     )
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(
-    PAGE_PREVIEW === 'assignment-detail'
+    ['assignment-detail', 'edit-assignment', 'delete-assignment'].includes(PAGE_PREVIEW ?? '')
       ? ASSIGNMENT_PREVIEW[0]?.id ?? null
       : PAGE_PREVIEW === 'assignment-submit'
         ? ASSIGNMENT_PREVIEW[1]?.id ?? null
         : null,
   )
-  const [isCreateAssignmentOpen, setIsCreateAssignmentOpen] = useState(PAGE_PREVIEW === 'create-assignment')
+  const [isCreateAssignmentOpen, setIsCreateAssignmentOpen] = useState(
+    PAGE_PREVIEW === 'create-assignment' || PAGE_PREVIEW === 'edit-assignment',
+  )
   const [isSavingAssignment, setIsSavingAssignment] = useState(false)
   const [assignmentActionError, setAssignmentActionError] = useState<string>()
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | undefined>(
+    PAGE_PREVIEW === 'edit-assignment' ? ASSIGNMENT_PREVIEW[0]?.id : undefined,
+  )
+  const [deletingAssignmentId, setDeletingAssignmentId] = useState<string>()
+  const [assignmentDeleteError, setAssignmentDeleteError] = useState<string>()
   const [members, setMembers] = useState<StudyMember[]>(
     window.ReactNativeWebView ? [] : PREVIEW_MEMBERS,
   )
@@ -240,6 +250,9 @@ function App() {
       setIsCreateAssignmentOpen(false)
       setIsSavingAssignment(false)
       setAssignmentActionError(undefined)
+      setEditingAssignmentId(undefined)
+      setDeletingAssignmentId(undefined)
+      setAssignmentDeleteError(undefined)
       setIsCreateStudyOpen(false)
       setIsCreatingStudy(false)
       setCreateStudyError(undefined)
@@ -318,8 +331,47 @@ function App() {
       setIsSavingAssignment(false)
       setAssignmentActionError(undefined)
     }
+    const handleAssignmentUpdateResult = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) return
+      if (detail.status === 'error') {
+        setIsSavingAssignment(false)
+        setAssignmentActionError('message' in detail && typeof detail.message === 'string' ? detail.message : '과제를 수정하지 못했어요.')
+        return
+      }
+      setIsSavingAssignment(false)
+      setAssignmentActionError(undefined)
+      setIsCreateAssignmentOpen(false)
+      setEditingAssignmentId(undefined)
+    }
+    const handleAssignmentDeleteResult = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) return
+      if (detail.status === 'error') {
+        setDeletingAssignmentId(undefined)
+        setAssignmentDeleteError('message' in detail && typeof detail.message === 'string' ? detail.message : '과제를 삭제하지 못했어요.')
+        return
+      }
+      if (
+        detail.status === 'success' &&
+        'assignment' in detail &&
+        detail.assignment &&
+        typeof detail.assignment === 'object' &&
+        'id' in detail.assignment &&
+        typeof detail.assignment.id === 'string'
+      ) {
+        const deletedAssignmentId = detail.assignment.id
+        setAssignments((current) => current.filter((assignment) => assignment.id !== deletedAssignmentId))
+        setDeletingAssignmentId(undefined)
+        setAssignmentDeleteError(undefined)
+        setSelectedAssignmentId(null)
+        setActiveTab('assignments')
+      }
+    }
     window.addEventListener('chongchong:assignment-create-result', handleAssignmentCreateResult)
     window.addEventListener('chongchong:assignment-submit-result', handleAssignmentSubmitResult)
+    window.addEventListener('chongchong:assignment-update-result', handleAssignmentUpdateResult)
+    window.addEventListener('chongchong:assignment-delete-result', handleAssignmentDeleteResult)
     const handleStudyCreateResult = (event: Event) => {
       const detail = (event as CustomEvent<unknown>).detail
       if (!detail || typeof detail !== 'object' || !('status' in detail)) {
@@ -543,6 +595,8 @@ function App() {
       window.removeEventListener('chongchong:assignments', handleAssignments)
       window.removeEventListener('chongchong:assignment-create-result', handleAssignmentCreateResult)
       window.removeEventListener('chongchong:assignment-submit-result', handleAssignmentSubmitResult)
+      window.removeEventListener('chongchong:assignment-update-result', handleAssignmentUpdateResult)
+      window.removeEventListener('chongchong:assignment-delete-result', handleAssignmentDeleteResult)
       window.removeEventListener('chongchong:study-create-result', handleStudyCreateResult)
       window.removeEventListener('chongchong:study-join-result', handleStudyJoinResult)
       window.removeEventListener('chongchong:notice-create-result', handleNoticeCreateResult)
@@ -654,15 +708,20 @@ function App() {
 
   const openCreateAssignment = () => {
     setAssignmentActionError(undefined)
+    setEditingAssignmentId(undefined)
     setIsCreateAssignmentOpen(true)
     postToNative({ type: 'open-create-assignment' })
   }
 
   const closeCreateAssignment = () => {
     if (isSavingAssignment) return
+    const wasEditing = Boolean(editingAssignmentId)
     setIsCreateAssignmentOpen(false)
     setAssignmentActionError(undefined)
-    postToNative({ type: 'close-create-assignment' })
+    setEditingAssignmentId(undefined)
+    if (!wasEditing) {
+      postToNative({ type: 'close-create-assignment' })
+    }
   }
 
   const createAssignment = (input: CreateAssignmentInput) => {
@@ -691,13 +750,50 @@ function App() {
   const openAssignment = (assignmentId: string) => {
     setSelectedAssignmentId(assignmentId)
     setAssignmentActionError(undefined)
+    setAssignmentDeleteError(undefined)
     postToNative({ assignmentId, type: 'open-assignment' })
+  }
+
+  const openEditAssignment = (assignmentId: string) => {
+    setAssignmentActionError(undefined)
+    setEditingAssignmentId(assignmentId)
+    setIsCreateAssignmentOpen(true)
+    postToNative({ assignmentId, type: 'edit-assignment' })
+  }
+
+  const updateAssignment = (input: CreateAssignmentInput) => {
+    if (!editingAssignmentId) return
+    setIsSavingAssignment(true)
+    setAssignmentActionError(undefined)
+    if (window.ReactNativeWebView) {
+      postToNative({ ...input, assignmentId: editingAssignmentId, type: 'update-assignment' })
+      return
+    }
+    setAssignments((current) => current.map((assignment) => assignment.id === editingAssignmentId ? {
+      ...assignment,
+      ...input,
+      deadlineAt: new Date(input.deadlineAt),
+    } : assignment))
+    window.dispatchEvent(new CustomEvent('chongchong:assignment-update-result', { detail: { status: 'success' } }))
+  }
+
+  const deleteAssignment = (assignmentId: string) => {
+    setDeletingAssignmentId(assignmentId)
+    setAssignmentDeleteError(undefined)
+    if (window.ReactNativeWebView) {
+      postToNative({ assignmentId, type: 'delete-assignment' })
+      return
+    }
+    window.dispatchEvent(new CustomEvent('chongchong:assignment-delete-result', {
+      detail: { assignment: { id: assignmentId, title: '' }, status: 'success' },
+    }))
   }
 
   const closeAssignment = () => {
     if (isSavingAssignment) return
     setSelectedAssignmentId(null)
     setAssignmentActionError(undefined)
+    setAssignmentDeleteError(undefined)
     postToNative({ type: 'close-assignment' })
   }
 
@@ -911,6 +1007,10 @@ function App() {
     )
   }
 
+  const editingAssignment = editingAssignmentId
+    ? assignments.find((assignment) => assignment.id === editingAssignmentId)
+    : undefined
+
   if (isCreateStudyOpen) {
     return (
       <CreateStudyPage
@@ -938,9 +1038,18 @@ function App() {
     return (
       <CreateAssignmentPage
         errorMessage={assignmentActionError}
+        initialValue={editingAssignment ? {
+          content: editingAssignment.content,
+          deadlineAt: editingAssignment.deadlineAt.toISOString(),
+          reminderAts: editingAssignment.reminderAts,
+          submissionInstructions: editingAssignment.submissionInstructions,
+          title: editingAssignment.title,
+        } : undefined}
         isSubmitting={isSavingAssignment}
+        key={editingAssignmentId ?? 'create'}
+        mode={editingAssignment ? 'edit' : 'create'}
         onBack={closeCreateAssignment}
-        onSubmit={createAssignment}
+        onSubmit={editingAssignment ? updateAssignment : createAssignment}
       />
     )
   }
@@ -1003,10 +1112,14 @@ function App() {
     return (
       <AssignmentDetailPage
         assignment={selectedAssignment}
+        deleteError={assignmentDeleteError}
         errorMessage={assignmentActionError}
+        isDeleting={deletingAssignmentId === selectedAssignment.id}
         isSubmitting={isSavingAssignment}
         key={`${selectedAssignment.id}-${selectedAssignment.submission?.updatedAt.getTime() ?? 'pending'}`}
         onBack={closeAssignment}
+        onDelete={deleteAssignment}
+        onEdit={openEditAssignment}
         onReminder={(memberIds) => postToNative({ assignmentId: selectedAssignment.id, memberIds, type: 'send-assignment-reminder' })}
         onSubmit={submitSelectedAssignment}
         role={selectedStudy.role}

@@ -189,6 +189,29 @@ export async function createAssignment(studyId: string, input: CreateAssignmentI
   return (await callable({ ...input, studyId })).data.assignment;
 }
 
+export async function updateAssignment(
+  studyId: string,
+  assignmentId: string,
+  input: CreateAssignmentInput,
+) {
+  const callable = httpsCallable<
+    CreateAssignmentInput & { assignmentId: string; studyId: string },
+    { assignment: { id: string; title: string } }
+  >(getFunctions(undefined, 'us-central1'), 'updateAssignment');
+  return (await callable({ ...input, assignmentId, studyId })).data.assignment;
+}
+
+export async function deleteAssignment(
+  studyId: string,
+  assignmentId: string,
+) {
+  const callable = httpsCallable<
+    { assignmentId: string; studyId: string },
+    { assignment: { id: string; title: string } }
+  >(getFunctions(undefined, 'us-central1'), 'deleteAssignment');
+  return (await callable({ assignmentId, studyId })).data.assignment;
+}
+
 export async function submitAssignment(
   studyId: string,
   assignmentId: string,
