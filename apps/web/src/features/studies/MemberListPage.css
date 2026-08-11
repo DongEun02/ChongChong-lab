@@ -87,6 +87,18 @@
   margin-left: auto;
 }
 
+.remove-member-button {
+  margin-left: auto;
+  padding: 8px 0 8px 12px;
+  border: 0;
+  background: transparent;
+  color: #00c471;
+  cursor: pointer;
+  font-size: 14px;
+  letter-spacing: -0.35px;
+  line-height: 20px;
+}
+
 .member-state {
   margin: 0;
   padding: 24px 0;

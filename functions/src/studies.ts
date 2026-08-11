@@ -8,6 +8,11 @@ export type JoinStudyRequest = {
   studyId: string;
 };
 
+export type RemoveStudyMemberRequest = {
+  memberId: string;
+  studyId: string;
+};
+
 const DOCUMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 export function parseCreateStudyRequest(value: unknown): CreateStudyRequest {
@@ -59,6 +64,27 @@ export function parseJoinStudyRequest(value: unknown): JoinStudyRequest {
   }
 
   return { studyId };
+}
+
+export function parseRemoveStudyMemberRequest(
+  value: unknown,
+): RemoveStudyMemberRequest {
+  if (!isRecord(value)) {
+    throw new Error('멤버 방출 요청 형식이 올바르지 않습니다.');
+  }
+
+  return {
+    memberId: parseDocumentId(value.memberId, '멤버'),
+    studyId: parseDocumentId(value.studyId, '스터디'),
+  };
+}
+
+function parseDocumentId(value: unknown, label: string) {
+  if (typeof value !== 'string' || !DOCUMENT_ID_PATTERN.test(value)) {
+    throw new Error(`${label} 정보가 올바르지 않습니다.`);
+  }
+
+  return value;
 }
 
 function parseText(

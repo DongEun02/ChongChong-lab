@@ -7,18 +7,22 @@ import type { StudyMember } from './members'
 import './MemberListPage.css'
 
 type MemberListPageProps = {
+  canRemoveMembers: boolean
   inviteUrl: string
   members: StudyMember[]
   onBack: () => void
   onCopyInviteLink: (inviteUrl: string) => void
+  onRemoveMember: (member: StudyMember) => void
   status: 'error' | 'loading' | 'ready'
 }
 
 export function MemberListPage({
+  canRemoveMembers,
   inviteUrl,
   members,
   onBack,
   onCopyInviteLink,
+  onRemoveMember,
   status,
 }: MemberListPageProps) {
   const [isCopied, setIsCopied] = useState(false)
@@ -67,6 +71,15 @@ export function MemberListPage({
                 <span className="member-name">{member.displayName}</span>
                 {member.role === 'leader' ? (
                   <img alt="스터디 리드" className="leader-crown" src={crownIcon} />
+                ) : canRemoveMembers ? (
+                  <button
+                    aria-label={`${member.displayName}님 방출하기`}
+                    className="remove-member-button"
+                    onClick={() => onRemoveMember(member)}
+                    type="button"
+                  >
+                    방출하기
+                  </button>
                 ) : null}
               </li>
             ))}

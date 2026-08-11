@@ -21,5 +21,6 @@ export type WebViewMessage =
   | { type: 'open-join-study' }
   | { type: 'open-notifications' }
   | { type: 'open-profile' }
+  | { type: 'remove-study-member'; displayName: string; memberId: string }
   | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
   | { type: 'study-selected'; studyId: string };

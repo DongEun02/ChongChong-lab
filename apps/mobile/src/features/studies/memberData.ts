@@ -5,12 +5,22 @@ import {
   orderBy,
   query,
 } from '@react-native-firebase/firestore';
+import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
 
 export type StudyMemberPayload = {
   displayName: string;
   id: string;
   role: 'leader' | 'member';
 };
+
+export async function removeStudyMember(studyId: string, memberId: string) {
+  const callable = httpsCallable<
+    { memberId: string; studyId: string },
+    { displayName?: string; memberCount: number }
+  >(getFunctions(undefined, 'us-central1'), 'removeStudyMember');
+  const response = await callable({ memberId, studyId });
+  return response.data;
+}
 
 export function subscribeToStudyMembers(
   studyId: string,
