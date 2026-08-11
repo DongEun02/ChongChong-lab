@@ -43,6 +43,12 @@ service cloud.firestore {
       match /assignments/{assignmentId} {
         allow read: if isStudyMember(studyId);
         allow write: if false;
+
+        match /submissions/{userId} {
+          allow read: if isStudyMember(studyId) &&
+            (isOwner(userId) || isStudyLeader(studyId));
+          allow write: if false;
+        }
       }
     }
 
@@ -54,6 +60,12 @@ service cloud.firestore {
       return request.auth != null
         && exists(/databases/$(database)/documents/studies/$(studyId)/members/$(request.auth.uid))
         && get(/databases/$(database)/documents/studies/$(studyId)/members/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isStudyLeader(studyId) {
+      return request.auth != null
+        && get(/databases/$(database)/documents/studies/$(studyId)).data.leaderId == request.auth.uid
+        && isStudyMember(studyId);
     }
 
     function isValidTokenId(tokenId) {
