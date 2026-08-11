@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert, Modal, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthenticatedScreen } from './src/features/auth/AuthenticatedScreen';
@@ -52,6 +52,7 @@ export default function App() {
   const handleSignOut = async () => {
     try {
       await signOutFromGoogle();
+      setIsProfileVisible(false);
     } catch (error) {
       Alert.alert('로그아웃 실패', getGoogleAuthErrorMessage(error));
     }
@@ -63,18 +64,26 @@ export default function App() {
     <SafeAreaProvider>
       {shouldShowSplash ? (
         <SplashScreen />
-      ) : user && isProfileVisible ? (
-        <AuthenticatedScreen
-          onClose={() => setIsProfileVisible(false)}
-          onSignOut={handleSignOut}
-          pushNotifications={pushNotifications}
-          user={user}
-        />
       ) : user ? (
-        <AppWebViewScreen
-          onOpenProfile={() => setIsProfileVisible(true)}
-          user={user}
-        />
+        <>
+          <AppWebViewScreen
+            onOpenProfile={() => setIsProfileVisible(true)}
+            user={user}
+          />
+          <Modal
+            animationType="slide"
+            onRequestClose={() => setIsProfileVisible(false)}
+            presentationStyle="fullScreen"
+            visible={isProfileVisible}
+          >
+            <AuthenticatedScreen
+              onClose={() => setIsProfileVisible(false)}
+              onSignOut={handleSignOut}
+              pushNotifications={pushNotifications}
+              user={user}
+            />
+          </Modal>
+        </>
       ) : (
         <LoginScreen
           errorMessage={loginError}
