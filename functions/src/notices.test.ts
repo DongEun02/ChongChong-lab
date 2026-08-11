@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   parseCreateNoticeRequest,
+  parseDeleteNoticeRequest,
   parseUpdateNoticeRequest,
 } from './notices.js';
 
@@ -127,6 +128,21 @@ test('parseUpdateNoticeRequest은 공지 ID와 수정 내용을 검증한다', (
         },
         NOW,
       ),
+    /공지 정보/,
+  );
+});
+
+test('parseDeleteNoticeRequest은 스터디와 공지 ID를 검증한다', () => {
+  assert.deepEqual(
+    parseDeleteNoticeRequest({ noticeId: 'notice-1', studyId: 'study-1' }),
+    { noticeId: 'notice-1', studyId: 'study-1' },
+  );
+  assert.throws(
+    () =>
+      parseDeleteNoticeRequest({
+        noticeId: 'notices/notice-1',
+        studyId: 'study-1',
+      }),
     /공지 정보/,
   );
 });
