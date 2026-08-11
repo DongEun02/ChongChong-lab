@@ -33,12 +33,17 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     return false;
   }
 
-  return [
-    'exit-study',
-    'open-notifications',
-    'open-profile',
-    'study-selected',
-  ].includes(String(value.type));
+  if (value.type === 'study-selected') {
+    return 'studyId' in value && typeof value.studyId === 'string';
+  }
+
+  if (value.type === 'open-notice') {
+    return 'noticeId' in value && typeof value.noticeId === 'string';
+  }
+
+  return ['create-notice', 'exit-study', 'open-notifications', 'open-profile'].includes(
+    String(value.type),
+  );
 }
 
 function createNavigationScript(tab: AppTab) {
@@ -107,7 +112,17 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           return;
         }
 
-        Alert.alert('알림', '알림 목록 화면은 다음 페이지 PR에서 연결할게요.');
+        if (message.type === 'open-notice') {
+          Alert.alert('공지 상세', '공지 상세 화면은 다음 페이지 PR에서 연결할게요.');
+          return;
+        }
+
+        if (message.type === 'create-notice') {
+          Alert.alert('공지 작성', '공지 작성 화면은 별도 페이지 PR에서 연결할게요.');
+          return;
+        }
+
+        Alert.alert('알림', '알림 목록 화면은 별도 페이지 PR에서 연결할게요.');
       } catch {
         // 타입이 지정되지 않은 WebView 메시지는 무시합니다.
       }

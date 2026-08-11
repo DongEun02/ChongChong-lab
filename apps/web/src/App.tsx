@@ -11,11 +11,15 @@ import leadHomeMascot from './assets/figma/lead-home-mascot.png'
 import membersIcon from './assets/figma/members.svg'
 import noticesIcon from './assets/figma/notices.svg'
 import reminderMascot from './assets/figma/reminder-mascot.png'
+import { NoticeListPage } from './features/notices/NoticeListPage'
+import { NOTICE_SUMMARIES } from './features/notices/notices'
 import './App.css'
 
 type TabId = 'home' | 'notices' | 'assignments' | 'members'
 type NativeMessage =
+  | { type: 'create-notice' }
   | { type: 'exit-study' }
+  | { type: 'open-notice'; noticeId: string }
   | { type: 'open-notifications' }
   | { type: 'open-profile' }
   | { type: 'study-selected'; studyId: string }
@@ -180,6 +184,14 @@ function StudyPage({
 
       {activeTab === 'home' ? (
         <StudyHome displayName={displayName} />
+      ) : activeTab === 'notices' ? (
+        <NoticeListPage
+          notices={NOTICE_SUMMARIES}
+          onCreateNotice={() => postToNative({ type: 'create-notice' })}
+          onOpenNotice={(noticeId) =>
+            postToNative({ type: 'open-notice', noticeId })
+          }
+        />
       ) : (
         <PageScaffold activeTab={activeTab} />
       )}
@@ -227,13 +239,16 @@ function StudyHome({ displayName }: { displayName: string }) {
   )
 }
 
-const TAB_TITLES: Record<Exclude<TabId, 'home'>, string> = {
-  notices: '공지',
+const TAB_TITLES: Record<Exclude<TabId, 'home' | 'notices'>, string> = {
   assignments: '과제',
   members: '멤버',
 }
 
-function PageScaffold({ activeTab }: { activeTab: Exclude<TabId, 'home'> }) {
+function PageScaffold({
+  activeTab,
+}: {
+  activeTab: Exclude<TabId, 'home' | 'notices'>
+}) {
   return (
     <section className="page-scaffold">
       <h1>{TAB_TITLES[activeTab]}</h1>
