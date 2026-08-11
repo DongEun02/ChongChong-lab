@@ -5,6 +5,10 @@ export type CreateNoticeRequest = {
   title: string;
 };
 
+export type UpdateNoticeRequest = CreateNoticeRequest & {
+  noticeId: string;
+};
+
 const DOCUMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const MAX_REMINDER_COUNT = 5;
 const MAX_REMINDER_DISTANCE_MS = 366 * 24 * 60 * 60 * 1000;
@@ -58,9 +62,23 @@ export function parseCreateNoticeRequest(
   return { content, reminderAts, studyId, title };
 }
 
-function parseDocumentId(value: unknown) {
+export function parseUpdateNoticeRequest(
+  value: unknown,
+  now = new Date(),
+): UpdateNoticeRequest {
+  if (!isRecord(value)) {
+    throw new Error('공지 수정 요청 형식이 올바르지 않습니다.');
+  }
+
+  return {
+    ...parseCreateNoticeRequest(value, now),
+    noticeId: parseDocumentId(value.noticeId, '공지'),
+  };
+}
+
+function parseDocumentId(value: unknown, label = '스터디') {
   if (typeof value !== 'string' || !DOCUMENT_ID_PATTERN.test(value)) {
-    throw new Error('스터디 정보가 올바르지 않습니다.');
+    throw new Error(`${label} 정보가 올바르지 않습니다.`);
   }
   return value;
 }
