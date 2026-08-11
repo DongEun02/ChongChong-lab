@@ -37,13 +37,31 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     return 'studyId' in value && typeof value.studyId === 'string';
   }
 
-  if (value.type === 'open-notice') {
+  if (
+    value.type === 'open-notice' ||
+    value.type === 'edit-notice' ||
+    value.type === 'delete-notice'
+  ) {
     return 'noticeId' in value && typeof value.noticeId === 'string';
   }
 
-  return ['create-notice', 'exit-study', 'open-notifications', 'open-profile'].includes(
-    String(value.type),
-  );
+  if (value.type === 'send-notice-reminder') {
+    return (
+      'noticeId' in value &&
+      typeof value.noticeId === 'string' &&
+      'memberIds' in value &&
+      Array.isArray(value.memberIds) &&
+      value.memberIds.every((memberId) => typeof memberId === 'string')
+    );
+  }
+
+  return [
+    'close-notice',
+    'create-notice',
+    'exit-study',
+    'open-notifications',
+    'open-profile',
+  ].includes(String(value.type));
 }
 
 function createNavigationScript(tab: AppTab) {
@@ -54,6 +72,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
   const webViewRef = useRef<WebView>(null);
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [isStudySelected, setIsStudySelected] = useState(false);
+  const [isSubpageOpen, setIsSubpageOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const injectedSession = useMemo(() => {
     const session = JSON.stringify({ displayName: user.displayName }).replaceAll(
@@ -66,6 +85,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
 
   const navigateToTab = useCallback((tab: AppTab) => {
     setActiveTab(tab);
+    setIsSubpageOpen(false);
     webViewRef.current?.injectJavaScript(createNavigationScript(tab));
   }, []);
 
@@ -73,6 +93,14 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (!isStudySelected) {
         return false;
+      }
+
+      if (isSubpageOpen) {
+        setIsSubpageOpen(false);
+        webViewRef.current?.injectJavaScript(
+          "window.dispatchEvent(new CustomEvent('chongchong:close-notice')); true;",
+        );
+        return true;
       }
 
       setIsStudySelected(false);
@@ -84,7 +112,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
     });
 
     return () => subscription.remove();
-  }, [isStudySelected]);
+  }, [isStudySelected, isSubpageOpen]);
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -97,12 +125,14 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
 
         if (message.type === 'study-selected') {
           setIsStudySelected(true);
+          setIsSubpageOpen(false);
           setActiveTab('home');
           return;
         }
 
         if (message.type === 'exit-study') {
           setIsStudySelected(false);
+          setIsSubpageOpen(false);
           setActiveTab('home');
           return;
         }
@@ -113,7 +143,30 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         }
 
         if (message.type === 'open-notice') {
-          Alert.alert('공지 상세', '공지 상세 화면은 다음 페이지 PR에서 연결할게요.');
+          setIsSubpageOpen(true);
+          return;
+        }
+
+        if (message.type === 'close-notice') {
+          setIsSubpageOpen(false);
+          return;
+        }
+
+        if (message.type === 'send-notice-reminder') {
+          Alert.alert(
+            '리마인드 발송 준비',
+            'Firebase 공지 데이터 연결 후 실제 푸시 발송으로 이어집니다.',
+          );
+          return;
+        }
+
+        if (message.type === 'edit-notice') {
+          Alert.alert('공지 수정', '공지 작성·수정 화면 PR에서 연결할게요.');
+          return;
+        }
+
+        if (message.type === 'delete-notice') {
+          Alert.alert('공지 삭제', '실제 데이터 연결 후 삭제 확인창을 연결할게요.');
           return;
         }
 
@@ -193,7 +246,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         startInLoadingState
         style={styles.webView}
       />
-      {isStudySelected ? (
+      {isStudySelected && !isSubpageOpen ? (
         <BottomTabBar activeTab={activeTab} onTabPress={navigateToTab} />
       ) : (
         <View style={styles.tabPlaceholder} />
