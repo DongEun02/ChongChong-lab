@@ -11,17 +11,22 @@ import leadHomeMascot from './assets/figma/lead-home-mascot.png'
 import membersIcon from './assets/figma/members.svg'
 import noticesIcon from './assets/figma/notices.svg'
 import reminderMascot from './assets/figma/reminder-mascot.png'
+import { NoticeDetailPage } from './features/notices/NoticeDetailPage'
 import { NoticeListPage } from './features/notices/NoticeListPage'
-import { NOTICE_SUMMARIES } from './features/notices/notices'
+import { getNoticeDetail, NOTICE_SUMMARIES } from './features/notices/notices'
 import './App.css'
 
 type TabId = 'home' | 'notices' | 'assignments' | 'members'
 type NativeMessage =
+  | { type: 'close-notice' }
   | { type: 'create-notice' }
+  | { type: 'delete-notice'; noticeId: string }
+  | { type: 'edit-notice'; noticeId: string }
   | { type: 'exit-study' }
   | { type: 'open-notice'; noticeId: string }
   | { type: 'open-notifications' }
   | { type: 'open-profile' }
+  | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
   | { type: 'study-selected'; studyId: string }
 
 declare global {
@@ -47,6 +52,7 @@ function postToNative(message: NativeMessage) {
 function App() {
   const [isStudyOpen, setIsStudyOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<TabId>('home')
+  const [selectedNoticeId, setSelectedNoticeId] = useState<string | null>(null)
   const displayName = window.__CHONGCHONG_SESSION__?.displayName?.trim() || '바니'
 
   useEffect(() => {
@@ -56,16 +62,20 @@ function App() {
       if (detail?.tab) {
         setIsStudyOpen(true)
         setActiveTab(detail.tab)
+        setSelectedNoticeId(null)
       }
     }
 
     window.addEventListener('chongchong:navigate', handleNavigation)
     const handleExitStudy = () => setIsStudyOpen(false)
     window.addEventListener('chongchong:exit-study', handleExitStudy)
+    const handleCloseNotice = () => setSelectedNoticeId(null)
+    window.addEventListener('chongchong:close-notice', handleCloseNotice)
 
     return () => {
       window.removeEventListener('chongchong:navigate', handleNavigation)
       window.removeEventListener('chongchong:exit-study', handleExitStudy)
+      window.removeEventListener('chongchong:close-notice', handleCloseNotice)
     }
   }, [])
 
@@ -77,7 +87,18 @@ function App() {
 
   const closeStudy = () => {
     setIsStudyOpen(false)
+    setSelectedNoticeId(null)
     postToNative({ type: 'exit-study' })
+  }
+
+  const openNotice = (noticeId: string) => {
+    setSelectedNoticeId(noticeId)
+    postToNative({ type: 'open-notice', noticeId })
+  }
+
+  const closeNotice = () => {
+    setSelectedNoticeId(null)
+    postToNative({ type: 'close-notice' })
   }
 
   if (!isStudyOpen) {
@@ -90,11 +111,30 @@ function App() {
     )
   }
 
+  const selectedNotice = selectedNoticeId
+    ? getNoticeDetail(selectedNoticeId)
+    : undefined
+
+  if (selectedNotice) {
+    return (
+      <NoticeDetailPage
+        notice={selectedNotice}
+        onBack={closeNotice}
+        onDelete={(noticeId) => postToNative({ type: 'delete-notice', noticeId })}
+        onEdit={(noticeId) => postToNative({ type: 'edit-notice', noticeId })}
+        onSendReminder={(noticeId, memberIds) =>
+          postToNative({ type: 'send-notice-reminder', memberIds, noticeId })
+        }
+      />
+    )
+  }
+
   return (
     <StudyPage
       activeTab={activeTab}
       displayName={displayName}
       onBack={closeStudy}
+      onOpenNotice={openNotice}
       onOpenNotifications={() => postToNative({ type: 'open-notifications' })}
     />
   )
@@ -158,6 +198,7 @@ type StudyPageProps = {
   activeTab: TabId
   displayName: string
   onBack: () => void
+  onOpenNotice: (noticeId: string) => void
   onOpenNotifications: () => void
 }
 
@@ -165,6 +206,7 @@ function StudyPage({
   activeTab,
   displayName,
   onBack,
+  onOpenNotice,
   onOpenNotifications,
 }: StudyPageProps) {
   return (
@@ -188,9 +230,7 @@ function StudyPage({
         <NoticeListPage
           notices={NOTICE_SUMMARIES}
           onCreateNotice={() => postToNative({ type: 'create-notice' })}
-          onOpenNotice={(noticeId) =>
-            postToNative({ type: 'open-notice', noticeId })
-          }
+          onOpenNotice={onOpenNotice}
         />
       ) : (
         <PageScaffold activeTab={activeTab} />
