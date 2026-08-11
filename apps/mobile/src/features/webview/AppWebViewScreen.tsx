@@ -19,6 +19,10 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { BottomTabBar } from './BottomTabBar';
 import type { AppTab, WebViewMessage } from './types';
 import {
+  subscribeToStudyAssignments,
+  type AssignmentPayload,
+} from '../assignments/assignmentData';
+import {
   createNotice,
   deleteNotice,
   requestNoticeReminder,
@@ -177,6 +181,17 @@ function createNoticeDataScript(
   return `window.dispatchEvent(new CustomEvent('chongchong:notices', { detail: ${detail} })); true;`;
 }
 
+function createAssignmentDataScript(
+  status: 'error' | 'ready',
+  assignments: AssignmentPayload[] = [],
+) {
+  const detail = JSON.stringify({ assignments, status }).replaceAll(
+    '<',
+    '\\u003c',
+  );
+  return `window.dispatchEvent(new CustomEvent('chongchong:assignments', { detail: ${detail} })); true;`;
+}
+
 function createStudyResultScript(
   detail:
     | { status: 'error'; message: string }
@@ -251,6 +266,9 @@ function createNotificationDataScript(
 
 export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps) {
   const webViewRef = useRef<WebView>(null);
+  const latestAssignmentsRef = useRef<AssignmentPayload[] | undefined>(
+    undefined,
+  );
   const latestNoticesRef = useRef<NoticePayload[] | undefined>(undefined);
   const latestStudiesRef = useRef<StudyListPayload[] | undefined>(undefined);
   const latestMembersRef = useRef<StudyMemberPayload[] | undefined>(undefined);
@@ -352,6 +370,30 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
       },
     );
   }, [selectedStudyId]);
+
+  useEffect(() => {
+    if (!selectedStudyId) {
+      latestAssignmentsRef.current = undefined;
+      return;
+    }
+
+    return subscribeToStudyAssignments(
+      selectedStudyId,
+      user.uid,
+      (assignments) => {
+        latestAssignmentsRef.current = assignments;
+        webViewRef.current?.injectJavaScript(
+          createAssignmentDataScript('ready', assignments),
+        );
+      },
+      (error) => {
+        console.warn('Assignment subscription error', error);
+        webViewRef.current?.injectJavaScript(
+          createAssignmentDataScript('error'),
+        );
+      },
+    );
+  }, [selectedStudyId, user.uid]);
 
   useEffect(() => {
     if (!selectedStudyId) {
@@ -833,6 +875,14 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           if (latestNoticesRef.current) {
             webViewRef.current?.injectJavaScript(
               createNoticeDataScript('ready', latestNoticesRef.current),
+            );
+          }
+          if (latestAssignmentsRef.current) {
+            webViewRef.current?.injectJavaScript(
+              createAssignmentDataScript(
+                'ready',
+                latestAssignmentsRef.current,
+              ),
             );
           }
           if (latestStudiesRef.current) {
