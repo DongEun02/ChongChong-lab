@@ -14,6 +14,10 @@ import reminderMascot from './assets/figma/reminder-mascot.png'
 import { NoticeDetailPage } from './features/notices/NoticeDetailPage'
 import { NoticeListPage } from './features/notices/NoticeListPage'
 import {
+  CreateNoticePage,
+  type CreateNoticeInput,
+} from './features/notices/CreateNoticePage'
+import {
   CreateStudyPage,
   type CreateStudyInput,
 } from './features/studies/CreateStudyPage'
@@ -47,10 +51,11 @@ type StudySummary = {
 type NativeMessage =
   | { type: 'close-notice' }
   | { type: 'close-create-study' }
+  | { type: 'close-create-notice' }
   | { type: 'close-join-study' }
   | { type: 'copy-invite-link'; inviteUrl: string }
   | ({ type: 'create-study' } & CreateStudyInput)
-  | { type: 'create-notice' }
+  | ({ type: 'create-notice' } & CreateNoticeInput)
   | { type: 'delete-notice'; noticeId: string }
   | { type: 'delete-study'; studyName: string }
   | { type: 'edit-notice'; noticeId: string }
@@ -58,6 +63,7 @@ type NativeMessage =
   | { type: 'join-study'; inviteUrl: string }
   | { type: 'open-notice'; noticeId: string }
   | { type: 'open-create-study' }
+  | { type: 'open-create-notice' }
   | { type: 'open-join-study' }
   | { type: 'open-notifications' }
   | { type: 'open-profile' }
@@ -91,6 +97,10 @@ const PREVIEW_MEMBERS: StudyMember[] = [
   { displayName: '정총총', id: 'preview-member-4', role: 'member' },
 ]
 
+const IS_CREATE_NOTICE_PREVIEW =
+  import.meta.env.DEV &&
+  new URLSearchParams(window.location.search).get('preview') === 'create-notice'
+
 function postToNative(message: NativeMessage) {
   window.ReactNativeWebView?.postMessage(JSON.stringify(message))
 }
@@ -103,6 +113,11 @@ function App() {
   const [isJoinStudyOpen, setIsJoinStudyOpen] = useState(false)
   const [isJoiningStudy, setIsJoiningStudy] = useState(false)
   const [joinStudyError, setJoinStudyError] = useState<string>()
+  const [isCreateNoticeOpen, setIsCreateNoticeOpen] = useState(
+    IS_CREATE_NOTICE_PREVIEW,
+  )
+  const [isCreatingNotice, setIsCreatingNotice] = useState(false)
+  const [createNoticeError, setCreateNoticeError] = useState<string>()
   const [studies, setStudies] = useState<StudySummary[]>(
     window.ReactNativeWebView ? [] : [STUDY],
   )
@@ -150,6 +165,9 @@ function App() {
       setIsJoinStudyOpen(false)
       setIsJoiningStudy(false)
       setJoinStudyError(undefined)
+      setIsCreateNoticeOpen(false)
+      setIsCreatingNotice(false)
+      setCreateNoticeError(undefined)
     }
     window.addEventListener('chongchong:close-subpage', handleCloseSubpage)
     const handleNotices = (event: Event) => {
@@ -241,6 +259,30 @@ function App() {
       }
     }
     window.addEventListener('chongchong:study-join-result', handleStudyJoinResult)
+    const handleNoticeCreateResult = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) {
+        return
+      }
+
+      if (detail.status === 'error') {
+        setIsCreatingNotice(false)
+        setCreateNoticeError(
+          'message' in detail && typeof detail.message === 'string'
+            ? detail.message
+            : '공지를 올리지 못했어요. 다시 시도해 주세요.',
+        )
+        return
+      }
+
+      if (detail.status === 'success') {
+        setIsCreatingNotice(false)
+        setCreateNoticeError(undefined)
+        setIsCreateNoticeOpen(false)
+        setActiveTab('notices')
+      }
+    }
+    window.addEventListener('chongchong:notice-create-result', handleNoticeCreateResult)
     const handleStudies = (event: Event) => {
       const detail = (event as CustomEvent<unknown>).detail
       if (!detail || typeof detail !== 'object' || !('status' in detail)) {
@@ -290,6 +332,7 @@ function App() {
       window.removeEventListener('chongchong:notices', handleNotices)
       window.removeEventListener('chongchong:study-create-result', handleStudyCreateResult)
       window.removeEventListener('chongchong:study-join-result', handleStudyJoinResult)
+      window.removeEventListener('chongchong:notice-create-result', handleNoticeCreateResult)
       window.removeEventListener('chongchong:studies', handleStudies)
       window.removeEventListener('chongchong:members', handleMembers)
     }
@@ -384,6 +427,37 @@ function App() {
     )
   }
 
+  const openCreateNotice = () => {
+    setCreateNoticeError(undefined)
+    setIsCreateNoticeOpen(true)
+    postToNative({ type: 'open-create-notice' })
+  }
+
+  const closeCreateNotice = () => {
+    if (isCreatingNotice) {
+      return
+    }
+    setIsCreateNoticeOpen(false)
+    setCreateNoticeError(undefined)
+    postToNative({ type: 'close-create-notice' })
+  }
+
+  const createNotice = (input: CreateNoticeInput) => {
+    setIsCreatingNotice(true)
+    setCreateNoticeError(undefined)
+
+    if (window.ReactNativeWebView) {
+      postToNative({ ...input, type: 'create-notice' })
+      return
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('chongchong:notice-create-result', {
+        detail: { status: 'success' },
+      }),
+    )
+  }
+
   const closeStudy = () => {
     setIsStudyOpen(false)
     setSelectedNoticeId(null)
@@ -460,6 +534,17 @@ function App() {
     )
   }
 
+  if (isCreateNoticeOpen) {
+    return (
+      <CreateNoticePage
+        errorMessage={createNoticeError}
+        isSubmitting={isCreatingNotice}
+        onBack={closeCreateNotice}
+        onSubmit={createNotice}
+      />
+    )
+  }
+
   if (!isStudyOpen) {
     return (
       <StudyList
@@ -504,6 +589,7 @@ function App() {
       onDeleteStudy={deleteSelectedStudy}
       onRemoveMember={removeMember}
       onOpenNotice={openNotice}
+      onCreateNotice={openCreateNotice}
       onOpenNotifications={() => postToNative({ type: 'open-notifications' })}
     />
   )
@@ -610,6 +696,7 @@ type StudyPageProps = {
   onDeleteStudy: () => void
   onRemoveMember: (member: StudyMember) => void
   onOpenNotice: (noticeId: string) => void
+  onCreateNotice: () => void
   onOpenNotifications: () => void
 }
 
@@ -626,6 +713,7 @@ function StudyPage({
   onDeleteStudy,
   onRemoveMember,
   onOpenNotice,
+  onCreateNotice,
   onOpenNotifications,
 }: StudyPageProps) {
   if (activeTab === 'members') {
@@ -667,7 +755,7 @@ function StudyPage({
         <NoticeListPage
           dataStatus={noticeDataStatus}
           notices={notices}
-          onCreateNotice={() => postToNative({ type: 'create-notice' })}
+          onCreateNotice={onCreateNotice}
           onOpenNotice={onOpenNotice}
         />
       ) : (

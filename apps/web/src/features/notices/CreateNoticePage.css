@@ -1,0 +1,185 @@
+.create-notice-screen {
+  color: #172033;
+}
+
+.create-notice-header {
+  display: flex;
+  height: 64px;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.create-notice-header h1 {
+  margin: 0 0 0 -2px;
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.45px;
+  line-height: 28px;
+}
+
+.create-notice-form {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 20px 32px;
+}
+
+.create-notice-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.create-notice-field + .create-notice-field,
+.create-notice-reminders {
+  margin-top: 16px;
+}
+
+.create-notice-label {
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+}
+
+.create-notice-label b {
+  color: #00c471;
+  font-weight: 400;
+}
+
+.create-notice-field input,
+.create-notice-field textarea,
+.reminder-input,
+.add-reminder-button {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.create-notice-field input {
+  height: 54px;
+  padding: 14px 16px;
+}
+
+.create-notice-field textarea {
+  height: 96px;
+  padding: 14px 16px;
+  resize: none;
+}
+
+.create-notice-field input,
+.create-notice-field textarea,
+.reminder-input input {
+  color: #172033;
+  font: inherit;
+  font-size: 16px;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+  outline: none;
+}
+
+.create-notice-field input:focus,
+.create-notice-field textarea:focus,
+.reminder-input:focus-within {
+  border-color: #00c471;
+}
+
+.create-notice-field input::placeholder,
+.create-notice-field textarea::placeholder {
+  color: rgba(15, 23, 42, 0.4);
+}
+
+.create-notice-field small,
+.create-notice-reminders small {
+  margin-top: 4px;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 12px;
+  letter-spacing: -0.3px;
+  line-height: 18px;
+}
+
+.create-notice-reminders {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 0;
+}
+
+.reminder-input {
+  display: flex;
+  height: 52px;
+  align-items: center;
+  padding: 0 12px 0 16px;
+}
+
+.reminder-input + .reminder-input,
+.reminder-input + .add-reminder-button {
+  margin-top: 4px;
+}
+
+.reminder-input input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.reminder-input button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  place-items: center;
+}
+
+.reminder-input button img {
+  width: 14px;
+  height: 14px;
+}
+
+.add-reminder-button {
+  display: grid;
+  height: 52px;
+  cursor: pointer;
+  place-items: center;
+}
+
+.add-reminder-button img {
+  width: 14px;
+  height: 14px;
+}
+
+.create-notice-error {
+  margin: 8px 0 0;
+  color: #f04452;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.create-notice-submit {
+  height: 52px;
+  margin-top: 32px;
+  border: 0;
+  border-radius: 12px;
+  background: #00c471;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+}
+
+.create-notice-submit:disabled,
+.add-reminder-button:disabled,
+.reminder-input button:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
