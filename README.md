@@ -12,9 +12,25 @@
 
 ```bash
 pnpm install
+```
+
+Android 에뮬레이터에서 로그인 이후 WebView까지 확인하려면 터미널 두 개를 엽니다.
+
+```bash
+# 터미널 1: React 웹 앱
 pnpm dev:web
+
+# 터미널 2: Expo 개발 서버
 pnpm dev:mobile
 ```
+
+WebView 같은 네이티브 의존성을 처음 설치하거나 변경한 뒤에는 개발 빌드를 한 번 다시 설치합니다.
+
+```bash
+pnpm --dir apps/mobile android
+```
+
+개발 중 Android 에뮬레이터는 기본으로 `http://10.0.2.2:5173`의 웹 앱을 엽니다. 배포 빌드에는 `EXPO_PUBLIC_WEB_APP_URL` 환경 변수로 HTTPS 웹 배포 주소를 지정합니다.
 
 ## 검증
 

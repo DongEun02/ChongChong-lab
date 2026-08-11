@@ -13,12 +13,14 @@ import { SplashScreen } from './src/features/auth/SplashScreen';
 import type { AuthProvider } from './src/features/auth/types';
 import { useAuthSession } from './src/features/auth/useAuthSession';
 import { usePushNotifications } from './src/features/notifications/usePushNotifications';
+import { AppWebViewScreen } from './src/features/webview/AppWebViewScreen';
 
 const SPLASH_DURATION_MS = 1_500;
 
 export default function App() {
   const [isSplashVisible, setIsSplashVisible] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isProfileVisible, setIsProfileVisible] = useState(false);
   const [loginError, setLoginError] = useState<string>();
   const { isInitializing, user } = useAuthSession();
   const pushNotifications = usePushNotifications(user?.uid);
@@ -61,10 +63,16 @@ export default function App() {
     <SafeAreaProvider>
       {shouldShowSplash ? (
         <SplashScreen />
-      ) : user ? (
+      ) : user && isProfileVisible ? (
         <AuthenticatedScreen
+          onClose={() => setIsProfileVisible(false)}
           onSignOut={handleSignOut}
           pushNotifications={pushNotifications}
+          user={user}
+        />
+      ) : user ? (
+        <AppWebViewScreen
+          onOpenProfile={() => setIsProfileVisible(true)}
           user={user}
         />
       ) : (

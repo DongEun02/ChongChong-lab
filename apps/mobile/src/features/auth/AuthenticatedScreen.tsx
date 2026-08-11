@@ -15,12 +15,14 @@ import type { UsePushNotificationsResult } from '../notifications/usePushNotific
 
 type AuthenticatedScreenProps = {
   user: User;
+  onClose?: () => void;
   onSignOut: () => void;
   pushNotifications: UsePushNotificationsResult;
 };
 
 export function AuthenticatedScreen({
   user,
+  onClose,
   onSignOut,
   pushNotifications,
 }: AuthenticatedScreenProps) {
@@ -54,15 +56,24 @@ export function AuthenticatedScreen({
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <StatusBar style="dark" />
 
+      {onClose ? (
+        <Pressable
+          accessibilityLabel="마이페이지 닫기"
+          accessibilityRole="button"
+          onPress={onClose}
+          style={styles.closeButton}
+        >
+          <Text style={styles.closeLabel}>닫기</Text>
+        </Pressable>
+      ) : null}
+
       <View style={styles.content}>
-        <Text style={styles.eyebrow}>GOOGLE LOGIN</Text>
-        <Text style={styles.title}>로그인했어요</Text>
+        <Text style={styles.eyebrow}>MY PAGE</Text>
+        <Text style={styles.title}>내 정보</Text>
         <Text style={styles.description}>
           {user.displayName ?? user.email ?? '총총 사용자'}님, 환영해요.
         </Text>
-        <Text style={styles.guide}>
-          다음 페이지 구현 전까지 Firebase 로그인 세션을 확인하는 화면이에요.
-        </Text>
+        <Text style={styles.guide}>로그인 계정과 알림 설정을 관리할 수 있어요.</Text>
 
         <View style={styles.pushSetting}>
           <View style={styles.pushCopy}>
@@ -108,6 +119,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    zIndex: 1,
+    top: 16,
+    right: 20,
+    paddingVertical: 8,
+  },
+  closeLabel: {
+    color: '#172033',
+    fontSize: 16,
   },
   eyebrow: {
     color: '#64748B',

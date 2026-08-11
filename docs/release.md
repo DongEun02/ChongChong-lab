@@ -8,6 +8,12 @@
 
 EAS 프로젝트 연결 ID는 `apps/mobile/app.json`의 `extra.eas.projectId`에서 관리합니다. GitHub 저장소를 이전해도 이 설정을 함께 옮기면 같은 EAS 프로젝트를 계속 사용합니다.
 
+## WebView 배포 주소
+
+모바일 앱은 로그인 이후 배포된 React 웹 앱을 WebView로 엽니다. preview·production 빌드 전에 EAS 환경 변수 `EXPO_PUBLIC_WEB_APP_URL`에 HTTPS 웹 배포 주소를 등록합니다. 이 값이 없는 로컬 개발 빌드는 Android 에뮬레이터에서 `http://10.0.2.2:5173`을 사용합니다.
+
+Google Play 제출 빌드에서는 로컬 주소를 사용할 수 없으므로 웹 앱을 먼저 배포하고 production 환경 변수 설정을 확인합니다. WebView는 설정한 웹 앱과 동일한 origin만 내부에서 열고, 외부 URL은 시스템 브라우저로 전달합니다.
+
 ## Android 빌드 프로필
 
 `apps/mobile`에서 다음 명령을 실행합니다.
