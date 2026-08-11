@@ -21,6 +21,8 @@ type CreateNoticePageProps = {
 }
 
 const MAX_REMINDER_COUNT = 5
+const MAX_TITLE_LENGTH = 15
+const MAX_CONTENT_LENGTH = 10_000
 
 export function CreateNoticePage({
   errorMessage,
@@ -36,7 +38,7 @@ export function CreateNoticePage({
     const futureReminders = (initialValue?.reminderAts ?? [])
       .filter((value) => new Date(value) > new Date())
       .map((value) => toLocalDateTime(new Date(value)))
-    return futureReminders.length > 0 ? futureReminders : ['']
+    return futureReminders
   })
   const [minimumReminderValue] = useState(() => toLocalDateTime(new Date()))
   const areRemindersValid = reminderValues.every((value) => {
@@ -45,9 +47,9 @@ export function CreateNoticePage({
   })
   const canSubmit =
     title.trim().length >= 1 &&
-    title.trim().length <= 50 &&
+    title.trim().length <= MAX_TITLE_LENGTH &&
     content.trim().length >= 1 &&
-    content.trim().length <= 3_000 &&
+    content.trim().length <= MAX_CONTENT_LENGTH &&
     areRemindersValid &&
     !isSubmitting
 
@@ -91,10 +93,10 @@ export function CreateNoticePage({
         <label className="create-notice-field">
           <span className="create-notice-label">제목 <b>*</b></span>
           <input
-            aria-invalid={title.trim().length > 50}
+            aria-invalid={title.trim().length > MAX_TITLE_LENGTH}
             autoComplete="off"
             disabled={isSubmitting}
-            maxLength={50}
+            maxLength={MAX_TITLE_LENGTH}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="공지 제목을 입력해주세요"
             value={title}
@@ -105,7 +107,7 @@ export function CreateNoticePage({
           <span className="create-notice-label">내용 <b>*</b></span>
           <textarea
             disabled={isSubmitting}
-            maxLength={3_000}
+            maxLength={MAX_CONTENT_LENGTH}
             onChange={(event) => setContent(event.target.value)}
             placeholder="설명을 입력해주세요"
             value={content}
@@ -114,7 +116,7 @@ export function CreateNoticePage({
         </label>
 
         <fieldset className="create-notice-reminders">
-          <legend className="create-notice-label">리마인드 시각 <b>*</b></legend>
+          <legend className="create-notice-label">리마인드 시각 <small>(선택)</small></legend>
           {reminderValues.map((value, index) => (
             <label className="reminder-input" key={index}>
               <input
@@ -125,7 +127,7 @@ export function CreateNoticePage({
                 type="datetime-local"
                 value={value}
               />
-              {reminderValues.length > 1 ? (
+              {reminderValues.length > 0 ? (
                 <button
                   aria-label={`리마인드 시각 ${index + 1} 삭제`}
                   disabled={isSubmitting}
