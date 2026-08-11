@@ -9,6 +9,12 @@ service cloud.firestore {
         && isValidPushToken();
     }
 
+    // Callable Function이 생성한 사용자별 스터디 인덱스는 본인만 조회합니다.
+    match /users/{userId}/studies/{studyId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
     // Firebase Admin SDK만 알림 발송 작업을 생성하고 처리합니다.
     match /notificationJobs/{jobId} {
       allow read, write: if false;

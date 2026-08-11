@@ -20,12 +20,91 @@ import {
   parseNotificationJob,
   type PushTokenTarget,
 } from './pushJobs.js';
+import { parseCreateStudyRequest } from './studies.js';
 
 if (getApps().length === 0) {
   initializeApp();
 }
 
 const db = getFirestore();
+
+export const createStudy = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseCreateStudyRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const studyReference = db.collection('studies').doc();
+    const memberReference = studyReference
+      .collection('members')
+      .doc(request.auth.uid);
+    const userStudyReference = db
+      .collection('users')
+      .doc(request.auth.uid)
+      .collection('studies')
+      .doc(studyReference.id);
+    const displayName = parseDisplayName(
+      request.auth.token.name,
+      request.auth.token.email,
+    );
+
+    await db.runTransaction(async (transaction) => {
+      transaction.create(studyReference, {
+        createdAt: FieldValue.serverTimestamp(),
+        description: input.description,
+        leaderId: request.auth!.uid,
+        memberCount: 1,
+        memberLimit: input.memberLimit,
+        name: input.name,
+        status: 'active',
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      transaction.create(memberReference, {
+        displayName,
+        joinedAt: FieldValue.serverTimestamp(),
+        role: 'leader',
+        status: 'active',
+        userId: request.auth!.uid,
+      });
+      transaction.create(userStudyReference, {
+        createdAt: FieldValue.serverTimestamp(),
+        description: input.description,
+        memberCount: 1,
+        memberLimit: input.memberLimit,
+        name: input.name,
+        pendingAssignments: 0,
+        role: 'leader',
+        studyId: studyReference.id,
+        unreadNotices: 0,
+      });
+    });
+
+    return {
+      study: {
+        description: input.description,
+        id: studyReference.id,
+        memberCount: 1,
+        memberLimit: input.memberLimit,
+        name: input.name,
+        role: 'leader',
+      },
+    };
+  },
+);
 
 export const sendNoticeReminder = onCall(
   {
@@ -270,4 +349,16 @@ async function deleteInvalidTokens(
 function getErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : '알 수 없는 오류';
   return message.slice(0, 500);
+}
+
+function parseDisplayName(name: unknown, email: unknown) {
+  if (typeof name === 'string' && name.trim().length > 0) {
+    return name.trim().slice(0, 30);
+  }
+
+  if (typeof email === 'string' && email.includes('@')) {
+    return email.slice(0, email.indexOf('@')).slice(0, 30);
+  }
+
+  return '총총이';
 }
