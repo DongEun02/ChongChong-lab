@@ -121,7 +121,9 @@ function postToNative(message: NativeMessage) {
 }
 
 function App() {
-  const [isStudyOpen, setIsStudyOpen] = useState(false)
+  const [isStudyOpen, setIsStudyOpen] = useState(
+    PAGE_PREVIEW === 'delete-notice',
+  )
   const [isCreateStudyOpen, setIsCreateStudyOpen] = useState(false)
   const [isCreatingStudy, setIsCreatingStudy] = useState(false)
   const [createStudyError, setCreateStudyError] = useState<string>()
@@ -133,6 +135,8 @@ function App() {
   )
   const [isCreatingNotice, setIsCreatingNotice] = useState(false)
   const [createNoticeError, setCreateNoticeError] = useState<string>()
+  const [deletingNoticeId, setDeletingNoticeId] = useState<string>()
+  const [deleteNoticeError, setDeleteNoticeError] = useState<string>()
   const [editingNoticeId, setEditingNoticeId] = useState<string | undefined>(
     PAGE_PREVIEW === 'edit-notice' ? NOTICE_DETAILS[0]?.id : undefined,
   )
@@ -154,7 +158,9 @@ function App() {
   )
   const [selectedStudy, setSelectedStudy] = useState<StudySummary>(STUDY)
   const [activeTab, setActiveTab] = useState<TabId>('home')
-  const [selectedNoticeId, setSelectedNoticeId] = useState<string | null>(null)
+  const [selectedNoticeId, setSelectedNoticeId] = useState<string | null>(
+    PAGE_PREVIEW === 'delete-notice' ? NOTICE_DETAILS[0]?.id ?? null : null,
+  )
   const [notices, setNotices] = useState<NoticeDetail[]>(
     window.ReactNativeWebView ? [] : NOTICE_DETAILS,
   )
@@ -197,6 +203,8 @@ function App() {
       setIsCreatingNotice(false)
       setCreateNoticeError(undefined)
       setEditingNoticeId(undefined)
+      setDeletingNoticeId(undefined)
+      setDeleteNoticeError(undefined)
       setIsNotificationsOpen(false)
     }
     window.addEventListener('chongchong:close-subpage', handleCloseSubpage)
@@ -337,6 +345,41 @@ function App() {
       }
     }
     window.addEventListener('chongchong:notice-update-result', handleNoticeUpdateResult)
+    const handleNoticeDeleteResult = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail
+      if (!detail || typeof detail !== 'object' || !('status' in detail)) {
+        return
+      }
+
+      if (detail.status === 'error') {
+        setDeletingNoticeId(undefined)
+        setDeleteNoticeError(
+          'message' in detail && typeof detail.message === 'string'
+            ? detail.message
+            : '공지를 삭제하지 못했어요. 다시 시도해 주세요.',
+        )
+        return
+      }
+
+      if (
+        detail.status === 'success' &&
+        'notice' in detail &&
+        detail.notice &&
+        typeof detail.notice === 'object' &&
+        'id' in detail.notice &&
+        typeof detail.notice.id === 'string'
+      ) {
+        const deletedNoticeId = detail.notice.id
+        setNotices((current) =>
+          current.filter((notice) => notice.id !== deletedNoticeId),
+        )
+        setDeletingNoticeId(undefined)
+        setDeleteNoticeError(undefined)
+        setSelectedNoticeId(null)
+        setActiveTab('notices')
+      }
+    }
+    window.addEventListener('chongchong:notice-delete-result', handleNoticeDeleteResult)
     const handleStudies = (event: Event) => {
       const detail = (event as CustomEvent<unknown>).detail
       if (!detail || typeof detail !== 'object' || !('status' in detail)) {
@@ -408,6 +451,7 @@ function App() {
       window.removeEventListener('chongchong:study-join-result', handleStudyJoinResult)
       window.removeEventListener('chongchong:notice-create-result', handleNoticeCreateResult)
       window.removeEventListener('chongchong:notice-update-result', handleNoticeUpdateResult)
+      window.removeEventListener('chongchong:notice-delete-result', handleNoticeDeleteResult)
       window.removeEventListener('chongchong:studies', handleStudies)
       window.removeEventListener('chongchong:members', handleMembers)
       window.removeEventListener('chongchong:notifications', handleNotifications)
@@ -673,6 +717,25 @@ function App() {
     setSelectedNoticeId(notification.noticeId)
   }
 
+  const deleteNotice = (noticeId: string) => {
+    setDeletingNoticeId(noticeId)
+    setDeleteNoticeError(undefined)
+
+    if (window.ReactNativeWebView) {
+      postToNative({ noticeId, type: 'delete-notice' })
+      return
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('chongchong:notice-delete-result', {
+        detail: {
+          notice: { id: noticeId, title: '' },
+          status: 'success',
+        },
+      }),
+    )
+  }
+
   if (isCreateStudyOpen) {
     return (
       <CreateStudyPage
@@ -752,9 +815,11 @@ function App() {
   if (selectedNotice) {
     return (
       <NoticeDetailPage
+        deleteError={deleteNoticeError}
+        isDeleting={deletingNoticeId === selectedNotice.id}
         notice={selectedNotice}
         onBack={closeNotice}
-        onDelete={(noticeId) => postToNative({ type: 'delete-notice', noticeId })}
+        onDelete={deleteNotice}
         onEdit={openEditNotice}
         onSendReminder={(noticeId, memberIds) =>
           postToNative({ type: 'send-notice-reminder', memberIds, noticeId })

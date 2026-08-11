@@ -311,6 +311,89 @@
   outline-offset: 2px;
 }
 
+.notice-delete-overlay {
+  position: fixed;
+  z-index: 10;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.notice-delete-dialog {
+  overflow: hidden;
+  width: min(310px, 100%);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.notice-delete-copy {
+  padding: 24px 20px 20px;
+  text-align: center;
+}
+
+.notice-delete-copy h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.45px;
+  line-height: 28px;
+}
+
+.notice-delete-copy p {
+  margin: 8px 0 0;
+  color: rgba(15, 23, 42, 0.7);
+  font-size: 14px;
+  letter-spacing: -0.35px;
+  line-height: 20px;
+}
+
+.notice-delete-copy small {
+  display: block;
+  margin-top: 8px;
+  color: #de5e56;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.notice-delete-actions {
+  display: grid;
+  height: 52px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.notice-delete-actions button {
+  border: 0;
+  background: #fff;
+  color: rgba(15, 23, 42, 0.4);
+  cursor: pointer;
+  font-size: 16px;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+}
+
+.notice-delete-actions button + button {
+  border-left: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.notice-delete-actions .confirm-delete {
+  color: #de5e56;
+}
+
+.notice-delete-actions button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.notice-delete-actions button:focus-visible {
+  outline: 2px solid #172033;
+  outline-offset: -4px;
+}
+
 .visually-hidden {
   position: absolute;
   overflow: hidden;
