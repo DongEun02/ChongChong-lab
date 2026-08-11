@@ -25,6 +25,7 @@ import {
 import {
   parseCreateNoticeRequest,
   parseDeleteNoticeRequest,
+  parseMarkNoticeReadRequest,
   parseUpdateNoticeRequest,
 } from './notices.js';
 import { parseReadNotificationRequest } from './notifications.js';
@@ -566,6 +567,121 @@ export const createNotice = onCall(
     });
 
     return { notice: result };
+  },
+);
+
+export const markNoticeRead = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseMarkNoticeReadRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const memberReference = studyReference
+      .collection('members')
+      .doc(request.auth.uid);
+    const noticeReference = studyReference
+      .collection('notices')
+      .doc(input.noticeId);
+    const userStudyReference = db
+      .collection('users')
+      .doc(request.auth.uid)
+      .collection('studies')
+      .doc(input.studyId);
+    const notificationJobReference = db.collection('notificationJobs').doc();
+
+    const wasUpdated = await db.runTransaction(async (transaction) => {
+      const [studySnapshot, memberSnapshot, noticeSnapshot] = await Promise.all([
+        transaction.get(studyReference),
+        transaction.get(memberReference),
+        transaction.get(noticeReference),
+      ]);
+
+      if (
+        !studySnapshot.exists ||
+        studySnapshot.get('status') !== 'active' ||
+        !noticeSnapshot.exists
+      ) {
+        throw new HttpsError('not-found', '공지를 찾을 수 없습니다.');
+      }
+      if (memberSnapshot.get('status') !== 'active') {
+        throw new HttpsError(
+          'permission-denied',
+          '스터디 멤버만 공지를 확인할 수 있습니다.',
+        );
+      }
+
+      const rawReaders = noticeSnapshot.get('readByUserIds');
+      const readers = Array.isArray(rawReaders)
+        ? rawReaders.filter(
+            (userId): userId is string => typeof userId === 'string',
+          )
+        : [];
+      if (readers.includes(request.auth!.uid)) {
+        return false;
+      }
+
+      transaction.update(noticeReference, {
+        [`readAtByUserId.${request.auth!.uid}`]: FieldValue.serverTimestamp(),
+        readByUserIds: FieldValue.arrayUnion(request.auth!.uid),
+      });
+      transaction.set(
+        userStudyReference,
+        { unreadNotices: FieldValue.increment(-1) },
+        { merge: true },
+      );
+
+      const leaderId = studySnapshot.get('leaderId');
+      if (
+        typeof leaderId === 'string' &&
+        leaderId.length > 0 &&
+        leaderId !== request.auth!.uid
+      ) {
+        const displayName = memberSnapshot.get('displayName');
+        const memberName =
+          typeof displayName === 'string' && displayName.trim().length > 0
+            ? displayName.trim()
+            : parseDisplayName(
+                request.auth!.token.name,
+                request.auth!.token.email,
+              );
+        const noticeTitle = noticeSnapshot.get('title');
+        transaction.create(notificationJobReference, {
+          body:
+            typeof noticeTitle === 'string' && noticeTitle.trim().length > 0
+              ? noticeTitle
+              : '공지',
+          createdAt: FieldValue.serverTimestamp(),
+          createdBy: request.auth!.uid,
+          data: {
+            noticeId: input.noticeId,
+            screen: 'notice-detail',
+            studyId: input.studyId,
+          },
+          recipientUserIds: [leaderId],
+          status: 'pending',
+          title: `${memberName}님이 공지를 확인했어요`,
+        });
+      }
+
+      return true;
+    });
+
+    return { noticeId: input.noticeId, wasUpdated };
   },
 );
 
