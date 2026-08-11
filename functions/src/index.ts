@@ -2,6 +2,7 @@ import { getApps, initializeApp } from 'firebase-admin/app';
 import {
   FieldValue,
   getFirestore,
+  Timestamp,
   type DocumentReference,
 } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
@@ -13,6 +14,7 @@ import {
   parseNoticeReminderRequest,
   resolveUnreadRecipients,
 } from './noticeReminders.js';
+import { parseCreateNoticeRequest } from './notices.js';
 
 import {
   chunkTargets,
@@ -433,6 +435,127 @@ export const deleteStudy = onCall(
     await bulkWriter.close();
 
     return { name: studyName };
+  },
+);
+
+export const createNotice = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseCreateNoticeRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const actorReference = studyReference
+      .collection('members')
+      .doc(request.auth.uid);
+    const noticeReference = studyReference.collection('notices').doc();
+    const notificationJobReference = db.collection('notificationJobs').doc();
+
+    const result = await db.runTransaction(async (transaction) => {
+      const [studySnapshot, actorSnapshot, memberSnapshots] = await Promise.all([
+        transaction.get(studyReference),
+        transaction.get(actorReference),
+        transaction.get(studyReference.collection('members')),
+      ]);
+
+      if (!studySnapshot.exists || studySnapshot.get('status') !== 'active') {
+        throw new HttpsError('not-found', '스터디를 찾을 수 없습니다.');
+      }
+      if (
+        studySnapshot.get('leaderId') !== request.auth!.uid ||
+        actorSnapshot.get('status') !== 'active' ||
+        actorSnapshot.get('role') !== 'leader'
+      ) {
+        throw new HttpsError(
+          'permission-denied',
+          '스터디 리드만 공지를 작성할 수 있습니다.',
+        );
+      }
+
+      const displayName = actorSnapshot.get('displayName');
+      const authorName =
+        typeof displayName === 'string' && displayName.trim().length > 0
+          ? displayName.trim()
+          : parseDisplayName(
+              request.auth!.token.name,
+              request.auth!.token.email,
+            );
+      const activeMembers = memberSnapshots.docs.filter(
+        (snapshot) => snapshot.get('status') === 'active',
+      );
+      const recipientUserIds = activeMembers
+        .filter((snapshot) => snapshot.id !== request.auth!.uid)
+        .map((snapshot) => snapshot.id);
+      const reminderAts = input.reminderAts.map((date) =>
+        Timestamp.fromDate(date),
+      );
+
+      transaction.create(noticeReference, {
+        authorId: request.auth!.uid,
+        authorName,
+        content: input.content,
+        lastReminderAtByUserId: {},
+        nextReminderAt: reminderAts[0],
+        publishedAt: FieldValue.serverTimestamp(),
+        readByUserIds: [request.auth!.uid],
+        reminderAt: reminderAts[0],
+        reminderAts,
+        title: input.title,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      for (const member of activeMembers) {
+        if (
+          member.id === request.auth!.uid &&
+          recipientUserIds.length === 0
+        ) {
+          continue;
+        }
+        transaction.set(
+          db
+            .collection('users')
+            .doc(member.id)
+            .collection('studies')
+            .doc(input.studyId),
+          { unreadNotices: FieldValue.increment(1) },
+          { merge: true },
+        );
+      }
+
+      if (recipientUserIds.length > 0) {
+        transaction.create(notificationJobReference, {
+          body: input.title,
+          createdAt: FieldValue.serverTimestamp(),
+          createdBy: request.auth!.uid,
+          data: {
+            noticeId: noticeReference.id,
+            screen: 'notice-detail',
+            studyId: input.studyId,
+          },
+          recipientUserIds,
+          status: 'pending',
+          title: '새 공지가 올라왔어요',
+        });
+      }
+
+      return { id: noticeReference.id, title: input.title };
+    });
+
+    return { notice: result };
   },
 );
 
