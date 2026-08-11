@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseCreateStudyRequest } from './studies.js';
+import {
+  parseCreateStudyRequest,
+  parseJoinStudyRequest,
+} from './studies.js';
 
 test('parseCreateStudyRequest은 입력 앞뒤 공백을 제거한다', () => {
   assert.deepEqual(
@@ -41,5 +44,32 @@ test('parseCreateStudyRequest은 범위를 벗어난 인원을 거부한다', ()
   assert.throws(
     () => parseCreateStudyRequest({ memberLimit: 31, name: '총총 스터디' }),
     /2명 이상 30명 이하/,
+  );
+});
+
+test('parseJoinStudyRequest은 총총 초대 링크에서 스터디 ID를 추출한다', () => {
+  assert.deepEqual(
+    parseJoinStudyRequest({ inviteUrl: 'chongchong.app/join/study-1' }),
+    { studyId: 'study-1' },
+  );
+  assert.deepEqual(
+    parseJoinStudyRequest({
+      inviteUrl: 'https://chongchong.app/join/study_2',
+    }),
+    { studyId: 'study_2' },
+  );
+});
+
+test('parseJoinStudyRequest은 외부 도메인과 잘못된 경로를 거부한다', () => {
+  assert.throws(
+    () =>
+      parseJoinStudyRequest({
+        inviteUrl: 'https://example.com/join/study-1',
+      }),
+    /총총에서 발급된/,
+  );
+  assert.throws(
+    () => parseJoinStudyRequest({ inviteUrl: 'chongchong.app/study-1' }),
+    /총총에서 발급된/,
   );
 });
