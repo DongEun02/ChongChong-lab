@@ -19,6 +19,9 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { BottomTabBar } from './BottomTabBar';
 import type { AppTab, WebViewMessage } from './types';
 import {
+  createAssignment,
+  requestAssignmentReminder,
+  submitAssignment,
   subscribeToStudyAssignments,
   type AssignmentPayload,
 } from '../assignments/assignmentData';
@@ -96,6 +99,23 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     );
   }
 
+  if (value.type === 'create-assignment') {
+    return (
+      'title' in value && typeof value.title === 'string' &&
+      'content' in value && typeof value.content === 'string' &&
+      'submissionInstructions' in value && typeof value.submissionInstructions === 'string' &&
+      'deadlineAt' in value && typeof value.deadlineAt === 'string' &&
+      'reminderAts' in value && Array.isArray(value.reminderAts) &&
+      value.reminderAts.every((item) => typeof item === 'string')
+    );
+  }
+
+  if (value.type === 'submit-assignment') {
+    return 'assignmentId' in value && typeof value.assignmentId === 'string' &&
+      'content' in value && typeof value.content === 'string' &&
+      (!('link' in value) || typeof value.link === 'string');
+  }
+
   if (value.type === 'update-notice') {
     return (
       'noticeId' in value &&
@@ -126,6 +146,16 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     return 'noticeId' in value && typeof value.noticeId === 'string';
   }
 
+  if (value.type === 'open-assignment') {
+    return 'assignmentId' in value && typeof value.assignmentId === 'string';
+  }
+
+  if (value.type === 'send-assignment-reminder') {
+    return 'assignmentId' in value && typeof value.assignmentId === 'string' &&
+      'memberIds' in value && Array.isArray(value.memberIds) &&
+      value.memberIds.every((item) => typeof item === 'string');
+  }
+
   if (value.type === 'send-notice-reminder') {
     return (
       'noticeId' in value &&
@@ -140,6 +170,7 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     return (
       'notificationId' in value &&
       typeof value.notificationId === 'string' &&
+      (!('assignmentId' in value) || typeof value.assignmentId === 'string') &&
       (!('noticeId' in value) || typeof value.noticeId === 'string') &&
       (!('studyId' in value) || typeof value.studyId === 'string')
     );
@@ -156,12 +187,15 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
 
   return [
     'close-create-study',
+    'close-create-assignment',
     'close-notifications',
     'close-create-notice',
     'close-join-study',
     'close-notice',
+    'close-assignment',
     'exit-study',
     'open-create-study',
+    'open-create-assignment',
     'open-create-notice',
     'open-join-study',
     'open-notifications',
@@ -190,6 +224,14 @@ function createAssignmentDataScript(
     '\\u003c',
   );
   return `window.dispatchEvent(new CustomEvent('chongchong:assignments', { detail: ${detail} })); true;`;
+}
+
+function createAssignmentResultScript(
+  eventName: 'assignment-create-result' | 'assignment-submit-result',
+  detail: unknown,
+) {
+  const serialized = JSON.stringify(detail).replaceAll('<', '\\u003c');
+  return `window.dispatchEvent(new CustomEvent('chongchong:${eventName}', { detail: ${serialized} })); true;`;
 }
 
 function createStudyResultScript(
@@ -487,6 +529,12 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         }
 
         if (message.type === 'open-notification') {
+          if (message.studyId && message.assignmentId) {
+            setIsStudySelected(true);
+            setIsSubpageOpen(true);
+            setSelectedStudyId(message.studyId);
+            setActiveTab('assignments');
+          }
           if (message.studyId && message.noticeId) {
             setIsStudySelected(true);
             setIsSubpageOpen(true);
@@ -510,6 +558,11 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           return;
         }
 
+        if (message.type === 'open-create-assignment' || message.type === 'open-assignment') {
+          setIsSubpageOpen(true);
+          return;
+        }
+
         if (message.type === 'open-join-study') {
           setIsSubpageOpen(true);
           return;
@@ -521,6 +574,11 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         }
 
         if (message.type === 'close-create-notice') {
+          setIsSubpageOpen(false);
+          return;
+        }
+
+        if (message.type === 'close-create-assignment' || message.type === 'close-assignment') {
           setIsSubpageOpen(false);
           return;
         }
@@ -716,6 +774,46 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
                 '리마인드를 보내지 못했어요',
                 '잠시 후 다시 시도해 주세요.',
               );
+            });
+          return;
+        }
+
+        if (message.type === 'send-assignment-reminder') {
+          if (!selectedStudyId) return;
+          void requestAssignmentReminder(selectedStudyId, message.assignmentId, message.memberIds)
+            .then(({ targetCount }) => Alert.alert('리마인드 발송 완료', `미제출 ${targetCount}명에게 푸시 알림을 요청했어요.`))
+            .catch((error: unknown) => {
+              console.warn('Assignment reminder error', error);
+              Alert.alert('리마인드를 보내지 못했어요', getCallableErrorMessage(error, '잠시 후 다시 시도해 주세요.'));
+            });
+          return;
+        }
+
+        if (message.type === 'create-assignment') {
+          if (!selectedStudyId) return;
+          void createAssignment(selectedStudyId, {
+            content: message.content,
+            deadlineAt: message.deadlineAt,
+            reminderAts: message.reminderAts,
+            submissionInstructions: message.submissionInstructions,
+            title: message.title,
+          }).then((assignment) => {
+            setIsSubpageOpen(false);
+            webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-create-result', { assignment, status: 'success' }));
+          }).catch((error: unknown) => {
+            console.warn('Assignment creation error', error);
+            webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-create-result', { message: getCallableErrorMessage(error, '과제를 올리지 못했어요.'), status: 'error' }));
+          });
+          return;
+        }
+
+        if (message.type === 'submit-assignment') {
+          if (!selectedStudyId) return;
+          void submitAssignment(selectedStudyId, message.assignmentId, { content: message.content, link: message.link })
+            .then((submission) => webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-submit-result', { status: 'success', submission })))
+            .catch((error: unknown) => {
+              console.warn('Assignment submission error', error);
+              webViewRef.current?.injectJavaScript(createAssignmentResultScript('assignment-submit-result', { message: getCallableErrorMessage(error, '과제를 제출하지 못했어요.'), status: 'error' }));
             });
           return;
         }
