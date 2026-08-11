@@ -1,6 +1,7 @@
 export type NoticeSummary = {
   content: string
   id: string
+  isReadByCurrentUser: boolean
   publishedAt: Date
   readCount: number
   reminderLabel?: string
@@ -28,6 +29,7 @@ const FIVE_HOURS = 5 * 60 * 60 * 1000
 export const NOTICE_SUMMARIES: NoticeSummary[] = [
   {
     id: 'notice-august-operation',
+    isReadByCurrentUser: false,
     title: '8월 스터디 운영 방식이 바뀝니다',
     content:
       '8월부터 스터디 운영 방식을 조금 바꾸려고 합니다. 끝까지 읽고 읽음 버튼을 눌러주세요.',
@@ -38,6 +40,7 @@ export const NOTICE_SUMMARIES: NoticeSummary[] = [
   },
   {
     id: 'notice-presentation-order',
+    isReadByCurrentUser: true,
     title: '3주차 발표 순서를 안내합니다',
     content:
       '3주차부터 풀이 발표를 돌아가면서 진행합니다. 발표 순서와 준비할 내용을 꼭 확인해 주세요.',
@@ -47,6 +50,7 @@ export const NOTICE_SUMMARIES: NoticeSummary[] = [
   },
   {
     id: 'notice-review-guide',
+    isReadByCurrentUser: true,
     title: '코드 리뷰 진행 방식을 공유합니다',
     content:
       '이번 주부터 코드 리뷰는 두 명씩 짝을 지어 진행합니다. 리뷰 마감 시간도 함께 확인해 주세요.',
@@ -109,6 +113,7 @@ function parseNoticePayload(value: unknown): NoticeDetail | null {
     !isString(value.body) ||
     !isString(value.content) ||
     !isString(value.id) ||
+    typeof value.isReadByCurrentUser !== 'boolean' ||
     !isString(value.reminderAtLabel) ||
     !isString(value.title) ||
     !Number.isFinite(publishedAt.getTime()) ||
@@ -123,6 +128,7 @@ function parseNoticePayload(value: unknown): NoticeDetail | null {
     body: value.body,
     content: value.content,
     id: value.id,
+    isReadByCurrentUser: value.isReadByCurrentUser,
     members,
     publishedAt,
     readCount: members.filter((member) => member.read).length,

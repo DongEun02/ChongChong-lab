@@ -84,6 +84,7 @@ type NativeMessage =
   | { type: 'edit-notice'; noticeId: string }
   | { type: 'exit-study' }
   | { type: 'join-study'; inviteUrl: string }
+  | { type: 'mark-notice-read'; noticeId: string }
   | { type: 'open-notice'; noticeId: string }
   | { type: 'open-assignment'; assignmentId: string }
   | { type: 'open-create-assignment' }
@@ -1022,9 +1023,11 @@ function App() {
         onBack={closeNotice}
         onDelete={deleteNotice}
         onEdit={openEditNotice}
+        onRead={(noticeId) => postToNative({ noticeId, type: 'mark-notice-read' })}
         onSendReminder={(noticeId, memberIds) =>
           postToNative({ type: 'send-notice-reminder', memberIds, noticeId })
         }
+        role={selectedStudy.role}
       />
     )
   }
@@ -1223,6 +1226,7 @@ function StudyPage({
           notices={notices}
           onCreateNotice={onCreateNotice}
           onOpenNotice={onOpenNotice}
+          role={study.role}
         />
       ) : activeTab === 'assignments' ? (
         <AssignmentListPage

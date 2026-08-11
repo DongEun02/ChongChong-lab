@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   parseCreateNoticeRequest,
   parseDeleteNoticeRequest,
+  parseMarkNoticeReadRequest,
   parseUpdateNoticeRequest,
 } from './notices.js';
 
@@ -140,6 +141,21 @@ test('parseDeleteNoticeRequest은 스터디와 공지 ID를 검증한다', () =>
   assert.throws(
     () =>
       parseDeleteNoticeRequest({
+        noticeId: 'notices/notice-1',
+        studyId: 'study-1',
+      }),
+    /공지 정보/,
+  );
+});
+
+test('parseMarkNoticeReadRequest은 스터디와 공지 ID를 검증한다', () => {
+  assert.deepEqual(
+    parseMarkNoticeReadRequest({ noticeId: 'notice-1', studyId: 'study-1' }),
+    { noticeId: 'notice-1', studyId: 'study-1' },
+  );
+  assert.throws(
+    () =>
+      parseMarkNoticeReadRequest({
         noticeId: 'notices/notice-1',
         studyId: 'study-1',
       }),

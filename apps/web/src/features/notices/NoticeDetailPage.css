@@ -38,6 +38,10 @@
   padding: 67px 20px 32px;
 }
 
+.notice-detail-content.is-member {
+  padding-top: 28px;
+}
+
 .read-dashboard {
   padding: 19px;
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -270,6 +274,12 @@
   letter-spacing: -0.35px;
   line-height: 23px;
   white-space: pre-line;
+}
+
+.notice-read-marker {
+  width: 100%;
+  height: 1px;
+  margin-top: 32px;
 }
 
 .notice-detail-actions {

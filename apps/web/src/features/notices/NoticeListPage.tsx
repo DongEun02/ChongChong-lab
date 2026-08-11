@@ -11,6 +11,7 @@ type NoticeListPageProps = {
   notices: NoticeSummary[]
   onCreateNotice: () => void
   onOpenNotice: (noticeId: string) => void
+  role: 'leader' | 'member'
 }
 
 export function NoticeListPage({
@@ -18,6 +19,7 @@ export function NoticeListPage({
   notices,
   onCreateNotice,
   onOpenNotice,
+  role,
 }: NoticeListPageProps) {
   const sortedNotices = [...notices].sort(
     (left, right) => right.publishedAt.getTime() - left.publishedAt.getTime(),
@@ -46,12 +48,22 @@ export function NoticeListPage({
               type="button"
             >
               <span className="notice-badges">
-                <span className={`read-badge ${isAllRead ? 'is-complete' : ''}`}>
-                  {isAllRead
-                    ? '모두 읽음'
-                    : `${notice.readCount}/${notice.totalMemberCount} 읽음`}
+                <span
+                  className={`read-badge ${
+                    role === 'leader'
+                      ? isAllRead ? 'is-complete' : ''
+                      : notice.isReadByCurrentUser ? 'is-complete' : ''
+                  }`}
+                >
+                  {role === 'leader'
+                    ? isAllRead
+                      ? '모두 읽음'
+                      : `${notice.readCount}/${notice.totalMemberCount} 읽음`
+                    : notice.isReadByCurrentUser
+                      ? '읽음'
+                      : '미확인'}
                 </span>
-                {notice.reminderLabel ? (
+                {role === 'leader' && notice.reminderLabel ? (
                   <span className="reminder-badge">
                     <img alt="" src={clockIcon} />
                     {notice.reminderLabel}
@@ -68,9 +80,11 @@ export function NoticeListPage({
         })}
       </div>
 
-      <button className="create-notice-button" onClick={onCreateNotice} type="button">
-        공지 작성하기
-      </button>
+      {role === 'leader' ? (
+        <button className="create-notice-button" onClick={onCreateNotice} type="button">
+          공지 작성하기
+        </button>
+      ) : null}
     </section>
   )
 }
