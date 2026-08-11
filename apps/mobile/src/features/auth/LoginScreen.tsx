@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -9,6 +10,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  PRIVACY_POLICY_URL,
+  TERMS_OF_SERVICE_URL,
+} from '../legal/legalLinks';
 import type { AuthProvider } from './types';
 
 type LoginScreenProps = {
@@ -93,7 +98,23 @@ export function LoginScreen({
         ) : null}
 
         <Text style={styles.terms}>
-          계속하면 서비스 이용약관과 개인정보 처리방침에 동의하게 됩니다.
+          계속하면{' '}
+          <Text
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(TERMS_OF_SERVICE_URL)}
+            style={styles.termsLink}
+          >
+            서비스 이용약관
+          </Text>
+          과{' '}
+          <Text
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+            style={styles.termsLink}
+          >
+            개인정보처리방침
+          </Text>
+          에 동의하게 됩니다.
         </Text>
       </View>
     </SafeAreaView>
@@ -194,5 +215,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.325,
     lineHeight: 18,
     textAlign: 'center',
+  },
+  termsLink: {
+    color: '#334155',
+    textDecorationLine: 'underline',
   },
 });
