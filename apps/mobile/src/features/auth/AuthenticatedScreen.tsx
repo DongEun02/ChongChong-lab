@@ -12,6 +12,12 @@ import {
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  ACCOUNT_DELETION_URL,
+  PRIVACY_POLICY_URL,
+  SUPPORT_EMAIL_URL,
+  TERMS_OF_SERVICE_URL,
+} from '../legal/legalLinks';
 import type { UsePushNotificationsResult } from '../notifications/usePushNotifications';
 
 type AuthenticatedScreenProps = {
@@ -128,6 +134,36 @@ export function AuthenticatedScreen({
             value={pushNotifications.isEnabled}
           />
         </View>
+
+        <View style={styles.legalLinks}>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(TERMS_OF_SERVICE_URL)}
+          >
+            <Text style={styles.legalLinkLabel}>서비스 이용약관</Text>
+          </Pressable>
+          <Text style={styles.legalLinkDivider}>·</Text>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+          >
+            <Text style={styles.legalLinkLabel}>개인정보처리방침</Text>
+          </Pressable>
+          <Text style={styles.legalLinkDivider}>·</Text>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(SUPPORT_EMAIL_URL)}
+          >
+            <Text style={styles.legalLinkLabel}>문의하기</Text>
+          </Pressable>
+          <Text style={styles.legalLinkDivider}>·</Text>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(ACCOUNT_DELETION_URL)}
+          >
+            <Text style={styles.legalLinkLabel}>계정 삭제 안내</Text>
+          </Pressable>
+        </View>
       </View>
 
       <Pressable
@@ -234,6 +270,24 @@ const styles = StyleSheet.create({
     color: 'rgba(15, 23, 42, 0.7)',
     fontSize: 12,
     lineHeight: 18,
+  },
+  legalLinks: {
+    marginTop: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  legalLinkLabel: {
+    color: '#64748B',
+    fontSize: 12,
+    lineHeight: 18,
+    textDecorationLine: 'underline',
+  },
+  legalLinkDivider: {
+    color: '#CBD5E1',
+    fontSize: 12,
   },
   signOutButton: {
     height: 52,
