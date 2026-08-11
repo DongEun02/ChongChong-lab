@@ -3,6 +3,7 @@ import { Alert, Modal, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthenticatedScreen } from './src/features/auth/AuthenticatedScreen';
+import { deleteAccount, getAccountErrorMessage } from './src/features/auth/accountData';
 import {
   getGoogleAuthErrorMessage,
   signInWithGoogle,
@@ -58,6 +59,16 @@ export default function App() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteAccount();
+      await signOutFromGoogle();
+      setIsProfileVisible(false);
+    } catch (error) {
+      throw new Error(getAccountErrorMessage(error));
+    }
+  };
+
   const shouldShowSplash = isSplashVisible || isInitializing;
 
   return (
@@ -77,6 +88,7 @@ export default function App() {
             visible={isProfileVisible}
           >
             <AuthenticatedScreen
+              onDeleteAccount={handleDeleteAccount}
               onClose={() => setIsProfileVisible(false)}
               onSignOut={handleSignOut}
               pushNotifications={pushNotifications}

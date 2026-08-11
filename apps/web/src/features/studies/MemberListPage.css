@@ -73,6 +73,8 @@
 
 .member-name {
   overflow: hidden;
+  min-width: 0;
+  flex: 1;
   margin-left: 12px;
   color: #172033;
   font-size: 16px;
@@ -87,8 +89,14 @@
   margin-left: auto;
 }
 
-.remove-member-button {
+.member-actions {
+  display: flex;
+  flex: 0 0 auto;
   margin-left: auto;
+  gap: 10px;
+}
+
+.member-actions button {
   padding: 8px 0 8px 12px;
   border: 0;
   background: transparent;

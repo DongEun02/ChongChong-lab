@@ -6,6 +6,7 @@ import {
   parseDeleteStudyRequest,
   parseJoinStudyRequest,
   parseRemoveStudyMemberRequest,
+  parseTransferStudyLeadershipRequest,
 } from './studies.js';
 
 test('parseCreateStudyRequest은 입력 앞뒤 공백을 제거한다', () => {
@@ -99,4 +100,11 @@ test('parseDeleteStudyRequest은 스터디 ID를 검증한다', () => {
     () => parseDeleteStudyRequest({ studyId: 'studies/study-1' }),
     /스터디 정보가 올바르지/,
   );
+});
+
+test('parseTransferStudyLeadershipRequest은 양도 대상과 스터디를 검증한다', () => {
+  assert.deepEqual(parseTransferStudyLeadershipRequest({
+    memberId: 'member-1',
+    studyId: 'study-1',
+  }), { memberId: 'member-1', studyId: 'study-1' });
 });

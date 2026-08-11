@@ -1,4 +1,5 @@
 import { getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import {
   FieldValue,
   getFirestore,
@@ -43,6 +44,7 @@ import {
   parseDeleteStudyRequest,
   parseJoinStudyRequest,
   parseRemoveStudyMemberRequest,
+  parseTransferStudyLeadershipRequest,
 } from './studies.js';
 
 if (getApps().length === 0) {
@@ -367,6 +369,184 @@ export const removeStudyMember = onCall(
     });
 
     return result;
+  },
+);
+
+export const transferStudyLeadership = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+    let input;
+    try {
+      input = parseTransferStudyLeadershipRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+    if (input.memberId === request.auth.uid) {
+      throw new HttpsError('failed-precondition', '다른 멤버를 선택해 주세요.');
+    }
+
+    const studyReference = db.collection('studies').doc(input.studyId);
+    const actorReference = studyReference.collection('members').doc(request.auth.uid);
+    const targetReference = studyReference.collection('members').doc(input.memberId);
+    const notificationJobReference = db.collection('notificationJobs').doc();
+    const result = await db.runTransaction(async (transaction) => {
+      const [studySnapshot, actorSnapshot, targetSnapshot] = await Promise.all([
+        transaction.get(studyReference),
+        transaction.get(actorReference),
+        transaction.get(targetReference),
+      ]);
+      if (!studySnapshot.exists || studySnapshot.get('status') !== 'active') {
+        throw new HttpsError('not-found', '스터디를 찾을 수 없습니다.');
+      }
+      if (
+        studySnapshot.get('leaderId') !== request.auth!.uid ||
+        actorSnapshot.get('status') !== 'active' ||
+        actorSnapshot.get('role') !== 'leader'
+      ) {
+        throw new HttpsError('permission-denied', '스터디 리드만 리드를 양도할 수 있습니다.');
+      }
+      if (
+        !targetSnapshot.exists ||
+        targetSnapshot.get('status') !== 'active' ||
+        targetSnapshot.get('role') !== 'member'
+      ) {
+        throw new HttpsError('failed-precondition', '양도할 수 있는 멤버를 찾지 못했습니다.');
+      }
+
+      transaction.update(studyReference, {
+        leaderId: input.memberId,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      transaction.update(actorReference, { role: 'member' });
+      transaction.update(targetReference, { role: 'leader' });
+      transaction.set(
+        db.collection('users').doc(request.auth!.uid).collection('studies').doc(input.studyId),
+        { role: 'member' },
+        { merge: true },
+      );
+      transaction.set(
+        db.collection('users').doc(input.memberId).collection('studies').doc(input.studyId),
+        { role: 'leader' },
+        { merge: true },
+      );
+      transaction.create(notificationJobReference, {
+        body: studySnapshot.get('name') ?? '스터디',
+        createdAt: FieldValue.serverTimestamp(),
+        createdBy: request.auth!.uid,
+        data: { screen: 'members', studyId: input.studyId },
+        recipientUserIds: [input.memberId],
+        status: 'pending',
+        title: '스터디 리드가 되었어요',
+      });
+      return { displayName: targetSnapshot.get('displayName') ?? '스터디원' };
+    });
+    return result;
+  },
+);
+
+export const deleteAccount = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 5,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 120,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+    const userId = request.auth.uid;
+    const userReference = db.collection('users').doc(userId);
+    const [userStudies, ledStudies, memberships] = await Promise.all([
+      userReference.collection('studies').get(),
+      db.collection('studies').where('leaderId', '==', userId).get(),
+      db.collectionGroup('members').where('userId', '==', userId).get(),
+    ]);
+    if (
+      ledStudies.docs.some((snapshot) => snapshot.get('status') === 'active') ||
+      userStudies.docs.some((snapshot) => snapshot.get('role') === 'leader')
+    ) {
+      throw new HttpsError(
+        'failed-precondition',
+        '리드인 스터디를 다른 멤버에게 양도한 후 탈퇴해 주세요.',
+      );
+    }
+
+    for (const membership of memberships.docs) {
+      const studyReference = membership.ref.parent.parent;
+      if (!studyReference) continue;
+      const userStudyReference = userReference.collection('studies').doc(studyReference.id);
+      await db.runTransaction(async (transaction) => {
+        const [studySnapshot, memberSnapshot, memberSnapshots] = await Promise.all([
+          transaction.get(studyReference),
+          transaction.get(membership.ref),
+          transaction.get(studyReference.collection('members')),
+        ]);
+        if (!studySnapshot.exists || !memberSnapshot.exists) {
+          transaction.delete(userStudyReference);
+          return;
+        }
+        if (studySnapshot.get('leaderId') === userId) {
+          throw new HttpsError(
+            'failed-precondition',
+            '리드인 스터디를 다른 멤버에게 양도한 후 탈퇴해 주세요.',
+          );
+        }
+        const remainingMembers = memberSnapshots.docs.filter(
+          (snapshot) => snapshot.id !== userId && snapshot.get('status') === 'active',
+        );
+        transaction.delete(membership.ref);
+        transaction.delete(userStudyReference);
+        transaction.update(studyReference, {
+          memberCount: remainingMembers.length,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        for (const member of remainingMembers) {
+          transaction.set(
+            db.collection('users').doc(member.id).collection('studies').doc(studyReference.id),
+            { memberCount: remainingMembers.length },
+            { merge: true },
+          );
+        }
+      });
+    }
+
+    const [submissions, notices, assignments] = await Promise.all([
+      db.collectionGroup('submissions').where('userId', '==', userId).get(),
+      db.collectionGroup('notices').where('authorId', '==', userId).get(),
+      db.collectionGroup('assignments').where('authorId', '==', userId).get(),
+    ]);
+    const bulkWriter = db.bulkWriter();
+    for (const submission of submissions.docs) {
+      const assignmentReference = submission.ref.parent.parent;
+      if (assignmentReference) {
+        bulkWriter.update(assignmentReference, {
+          submittedByUserIds: FieldValue.arrayRemove(userId),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+      bulkWriter.delete(submission.ref);
+    }
+    for (const notice of notices.docs) {
+      bulkWriter.update(notice.ref, { authorId: null, authorName: '탈퇴한 사용자' });
+    }
+    for (const assignment of assignments.docs) {
+      bulkWriter.update(assignment.ref, { authorId: null });
+    }
+    await bulkWriter.close();
+    await db.recursiveDelete(userReference);
+    await getAdminAuth().deleteUser(userId);
+    return { deleted: true };
   },
 );
 

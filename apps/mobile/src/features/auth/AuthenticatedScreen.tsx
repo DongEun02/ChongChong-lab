@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { UsePushNotificationsResult } from '../notifications/usePushNotifications';
@@ -16,6 +17,7 @@ import type { UsePushNotificationsResult } from '../notifications/usePushNotific
 type AuthenticatedScreenProps = {
   user: User;
   onClose?: () => void;
+  onDeleteAccount: () => Promise<void>;
   onSignOut: () => void;
   pushNotifications: UsePushNotificationsResult;
 };
@@ -23,9 +25,11 @@ type AuthenticatedScreenProps = {
 export function AuthenticatedScreen({
   user,
   onClose,
+  onDeleteAccount,
   onSignOut,
   pushNotifications,
 }: AuthenticatedScreenProps) {
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const handlePushNotificationChange = async (nextValue: boolean) => {
     if (nextValue) {
       const result = await pushNotifications.enable();
@@ -50,6 +54,31 @@ export function AuthenticatedScreen({
     }
 
     await pushNotifications.disable();
+  };
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      '회원탈퇴를 진행할까요?',
+      '계정과 개인 데이터가 삭제되며 복구할 수 없어요. 리드인 스터디가 있다면 먼저 다른 멤버에게 양도해야 해요.',
+      [
+        { style: 'cancel', text: '취소' },
+        {
+          onPress: () => {
+            setIsDeletingAccount(true);
+            void onDeleteAccount()
+              .catch((error: unknown) => {
+                Alert.alert(
+                  '탈퇴하지 못했어요',
+                  error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.',
+                );
+              })
+              .finally(() => setIsDeletingAccount(false));
+          },
+          style: 'destructive',
+          text: '탈퇴하기',
+        },
+      ],
+    );
   };
 
   return (
@@ -103,6 +132,16 @@ export function AuthenticatedScreen({
 
       <Pressable
         accessibilityRole="button"
+        disabled={isDeletingAccount}
+        onPress={confirmDeleteAccount}
+        style={({ pressed }) => [styles.deleteAccountButton, pressed && styles.pressedButton]}
+      >
+        <Text style={styles.deleteAccountLabel}>{isDeletingAccount ? '탈퇴 처리 중...' : '회원탈퇴'}</Text>
+      </Pressable>
+
+      <Pressable
+        accessibilityRole="button"
+        disabled={isDeletingAccount}
         onPress={onSignOut}
         style={({ pressed }) => [
           styles.signOutButton,
@@ -203,6 +242,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 12,
     backgroundColor: '#F1F5F9',
+  },
+  deleteAccountButton: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteAccountLabel: {
+    color: '#DE5E56',
+    fontSize: 14,
   },
   pressedButton: {
     opacity: 0.72,

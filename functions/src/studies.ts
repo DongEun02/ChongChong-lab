@@ -17,6 +17,11 @@ export type DeleteStudyRequest = {
   studyId: string;
 };
 
+export type TransferStudyLeadershipRequest = {
+  memberId: string;
+  studyId: string;
+};
+
 const DOCUMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 export function parseCreateStudyRequest(value: unknown): CreateStudyRequest {
@@ -89,6 +94,19 @@ export function parseDeleteStudyRequest(value: unknown): DeleteStudyRequest {
   }
 
   return { studyId: parseDocumentId(value.studyId, '스터디') };
+}
+
+export function parseTransferStudyLeadershipRequest(
+  value: unknown,
+): TransferStudyLeadershipRequest {
+  if (!isRecord(value)) {
+    throw new Error('리드 양도 요청 형식이 올바르지 않습니다.');
+  }
+
+  return {
+    memberId: parseDocumentId(value.memberId, '멤버'),
+    studyId: parseDocumentId(value.studyId, '스터디'),
+  };
 }
 
 function parseDocumentId(value: unknown, label: string) {
