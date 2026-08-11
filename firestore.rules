@@ -39,6 +39,11 @@ service cloud.firestore {
         allow read: if isStudyMember(studyId);
         allow write: if false;
       }
+
+      match /assignments/{assignmentId} {
+        allow read: if isStudyMember(studyId);
+        allow write: if false;
+      }
     }
 
     function isOwner(userId) {
