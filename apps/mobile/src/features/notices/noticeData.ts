@@ -29,6 +29,12 @@ export type NoticePayload = {
   totalMemberCount: number;
 };
 
+export type CreateNoticeInput = {
+  content: string;
+  reminderAts: string[];
+  title: string;
+};
+
 type MemberRecord = {
   id: string;
   name: string;
@@ -112,6 +118,18 @@ export async function requestNoticeReminder(
   >(getFunctions(undefined, 'us-central1'), 'sendNoticeReminder');
   const response = await callable({ noticeId, recipientUserIds, studyId });
   return response.data;
+}
+
+export async function createNotice(
+  studyId: string,
+  input: CreateNoticeInput,
+) {
+  const callable = httpsCallable<
+    CreateNoticeInput & { studyId: string },
+    { notice: { id: string; title: string } }
+  >(getFunctions(undefined, 'us-central1'), 'createNotice');
+  const response = await callable({ ...input, studyId });
+  return response.data.notice;
 }
 
 function createNoticePayload(
