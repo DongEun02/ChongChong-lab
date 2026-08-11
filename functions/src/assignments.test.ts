@@ -4,7 +4,9 @@ import test from 'node:test';
 import {
   parseAssignmentReminderRequest,
   parseCreateAssignmentRequest,
+  parseDeleteAssignmentRequest,
   parseSubmitAssignmentRequest,
+  parseUpdateAssignmentRequest,
   resolveAssignmentReminderSchedule,
 } from './assignments.js';
 
@@ -56,4 +58,32 @@ test('예약 리마인드의 현재 발송 시각과 다음 시각을 구한다'
   ], new Date('2026-08-11T01:30:00.000Z'));
   assert.equal(schedule.dueAt?.toISOString(), '2026-08-11T01:00:00.000Z');
   assert.equal(schedule.nextAt?.toISOString(), '2026-08-11T02:00:00.000Z');
+});
+
+test('과제 수정 요청은 과제 ID와 수정 내용을 검증한다', () => {
+  const result = parseUpdateAssignmentRequest({
+    assignmentId: 'assignment-1',
+    content: '수정 내용',
+    deadlineAt: '2026-08-12T03:00:00.000Z',
+    reminderAts: ['2026-08-12T01:00:00.000Z'],
+    studyId: 'study-1',
+    submissionInstructions: '수정된 제출 방법',
+    title: '수정 과제',
+  }, NOW);
+  assert.equal(result.assignmentId, 'assignment-1');
+  assert.equal(result.title, '수정 과제');
+});
+
+test('과제 삭제 요청은 스터디와 과제 ID를 검증한다', () => {
+  assert.deepEqual(parseDeleteAssignmentRequest({
+    assignmentId: 'assignment-1',
+    studyId: 'study-1',
+  }), {
+    assignmentId: 'assignment-1',
+    studyId: 'study-1',
+  });
+  assert.throws(() => parseDeleteAssignmentRequest({
+    assignmentId: 'assignments/assignment-1',
+    studyId: 'study-1',
+  }), /과제 정보/);
 });

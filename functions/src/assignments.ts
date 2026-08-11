@@ -14,6 +14,15 @@ export type SubmitAssignmentRequest = {
   studyId: string;
 };
 
+export type UpdateAssignmentRequest = CreateAssignmentRequest & {
+  assignmentId: string;
+};
+
+export type DeleteAssignmentRequest = {
+  assignmentId: string;
+  studyId: string;
+};
+
 export type AssignmentReminderRequest = {
   assignmentId: string;
   recipientUserIds: string[];
@@ -64,6 +73,33 @@ export function parseSubmitAssignmentRequest(
     assignmentId: parseDocumentId(value.assignmentId, '과제'),
     content: parseText(value.content, '제출 내용', 1, 3_000),
     link: parseOptionalHttpUrl(value.link),
+    studyId: parseDocumentId(value.studyId, '스터디'),
+  };
+}
+
+export function parseUpdateAssignmentRequest(
+  value: unknown,
+  now = new Date(),
+): UpdateAssignmentRequest {
+  if (!isRecord(value)) {
+    throw new Error('과제 수정 요청 형식이 올바르지 않습니다.');
+  }
+
+  return {
+    ...parseCreateAssignmentRequest(value, now),
+    assignmentId: parseDocumentId(value.assignmentId, '과제'),
+  };
+}
+
+export function parseDeleteAssignmentRequest(
+  value: unknown,
+): DeleteAssignmentRequest {
+  if (!isRecord(value)) {
+    throw new Error('과제 삭제 요청 형식이 올바르지 않습니다.');
+  }
+
+  return {
+    assignmentId: parseDocumentId(value.assignmentId, '과제'),
     studyId: parseDocumentId(value.studyId, '스터디'),
   };
 }
