@@ -22,6 +22,14 @@ export async function removeStudyMember(studyId: string, memberId: string) {
   return response.data;
 }
 
+export async function transferStudyLeadership(studyId: string, memberId: string) {
+  const callable = httpsCallable<
+    { memberId: string; studyId: string },
+    { displayName: string }
+  >(getFunctions(undefined, 'us-central1'), 'transferStudyLeadership');
+  return (await callable({ memberId, studyId })).data;
+}
+
 export function subscribeToStudyMembers(
   studyId: string,
   onData: (members: StudyMemberPayload[]) => void,

@@ -57,6 +57,7 @@ export type WebViewMessage =
   | { type: 'send-assignment-reminder'; assignmentId: string; memberIds: string[] }
   | { type: 'study-selected'; studyId: string }
   | { type: 'submit-assignment'; assignmentId: string; content: string; link?: string }
+  | { type: 'transfer-study-leadership'; displayName: string; memberId: string }
   | {
       type: 'update-assignment';
       assignmentId: string;
