@@ -12,7 +12,7 @@ import membersIcon from './assets/figma/members.svg'
 import noticesIcon from './assets/figma/notices.svg'
 import reminderMascot from './assets/figma/reminder-mascot.png'
 import { AssignmentListPage } from './features/assignments/AssignmentListPage'
-import { AssignmentDetailPage } from './features/assignments/AssignmentDetailPage'
+import { AssignmentDetailPage, type EditableAttachment } from './features/assignments/AssignmentDetailPage'
 import {
   CreateAssignmentPage,
   type CreateAssignmentInput,
@@ -99,11 +99,19 @@ type NativeMessage =
       studyId?: string
     }
   | { type: 'open-profile' }
+  | { type: 'pick-assignment-attachment'; assignmentId: string }
   | { type: 'remove-study-member'; displayName: string; memberId: string }
   | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
   | { type: 'send-assignment-reminder'; assignmentId: string; memberIds: string[] }
   | { type: 'study-selected'; studyId: string }
-  | { type: 'submit-assignment'; assignmentId: string; content: string; link?: string }
+  | {
+      type: 'submit-assignment'
+      assignmentId: string
+      attachment?: EditableAttachment
+      content: string
+      link?: string
+      previousStoragePath?: string
+    }
   | ({ type: 'update-notice'; noticeId: string } & CreateNoticeInput)
 
 declare global {
@@ -700,19 +708,38 @@ function App() {
     postToNative({ type: 'close-assignment' })
   }
 
-  const submitSelectedAssignment = (content: string, link?: string) => {
+  const submitSelectedAssignment = (
+    content: string,
+    link?: string,
+    attachment?: EditableAttachment,
+    previousStoragePath?: string,
+  ) => {
     if (!selectedAssignmentId) return
     setIsSavingAssignment(true)
     setAssignmentActionError(undefined)
     if (window.ReactNativeWebView) {
-      postToNative({ assignmentId: selectedAssignmentId, content, link, type: 'submit-assignment' })
+      postToNative({ assignmentId: selectedAssignmentId, attachment, content, link, previousStoragePath, type: 'submit-assignment' })
       return
     }
     const submittedAt = new Date()
     setAssignments((current) => current.map((assignment) => assignment.id === selectedAssignmentId ? {
       ...assignment,
       isSubmitted: true,
-      submission: { content, link, submittedAt, updatedAt: submittedAt, userId: 'preview-member', userName: displayName },
+      submission: {
+        attachment: attachment ? {
+          contentType: 'application/pdf',
+          name: attachment.name,
+          size: attachment.size,
+          storagePath: attachment.storagePath ?? 'preview/attachment.pdf',
+          url: attachment.url ?? '#',
+        } : undefined,
+        content,
+        link,
+        submittedAt,
+        updatedAt: submittedAt,
+        userId: 'preview-member',
+        userName: displayName,
+      },
     } : assignment))
     setIsSavingAssignment(false)
   }
@@ -1006,6 +1033,7 @@ function App() {
         isSubmitting={isSavingAssignment}
         key={`${selectedAssignment.id}-${selectedAssignment.submission?.updatedAt.getTime() ?? 'pending'}`}
         onBack={closeAssignment}
+        onPickAttachment={() => postToNative({ assignmentId: selectedAssignment.id, type: 'pick-assignment-attachment' })}
         onReminder={(memberIds) => postToNative({ assignmentId: selectedAssignment.id, memberIds, type: 'send-assignment-reminder' })}
         onSubmit={submitSelectedAssignment}
         role={selectedStudy.role}

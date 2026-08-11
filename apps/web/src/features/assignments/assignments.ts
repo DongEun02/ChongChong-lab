@@ -6,12 +6,21 @@ export type AssignmentMember = {
 }
 
 export type AssignmentSubmission = {
+  attachment?: AssignmentAttachment
   content: string
   link?: string
   submittedAt: Date
   updatedAt: Date
   userId: string
   userName: string
+}
+
+export type AssignmentAttachment = {
+  contentType: 'application/pdf'
+  name: string
+  size: number
+  storagePath: string
+  url: string
 }
 
 export type AssignmentSummary = {
@@ -38,6 +47,13 @@ const PREVIEW_MEMBERS: AssignmentMember[] = [
 ]
 
 const PREVIEW_SUBMISSION: AssignmentSubmission = {
+  attachment: {
+    contentType: 'application/pdf',
+    name: 'greedy-week3.pdf',
+    size: 834_112,
+    storagePath: 'preview/greedy-week3.pdf',
+    url: 'https://example.com/greedy-week3.pdf',
+  },
   content: '그리디 문제집에서 원하는 세 문제를 풀고 풀이 과정을 정리했습니다.',
   link: 'https://github.com/antoliny/algo-week3',
   submittedAt: new Date('2026-08-03T18:20:00+09:00'),
@@ -127,7 +143,19 @@ function parseSubmission(value: unknown): AssignmentSubmission | null {
   const submittedAt = new Date(String(value.submittedAt))
   const updatedAt = new Date(String(value.updatedAt))
   if (typeof value.content !== 'string' || typeof value.userId !== 'string' || typeof value.userName !== 'string' || !Number.isFinite(submittedAt.getTime()) || !Number.isFinite(updatedAt.getTime())) return null
-  return { content: value.content, link: typeof value.link === 'string' ? value.link : undefined, submittedAt, updatedAt, userId: value.userId, userName: value.userName }
+  const attachment = parseAttachment(value.attachment)
+  if (value.attachment && !attachment) return null
+  return { attachment: attachment ?? undefined, content: value.content, link: typeof value.link === 'string' ? value.link : undefined, submittedAt, updatedAt, userId: value.userId, userName: value.userName }
+}
+
+function parseAttachment(value: unknown): AssignmentAttachment | null {
+  if (!isRecord(value)) return null
+  if (
+    value.contentType !== 'application/pdf' || typeof value.name !== 'string' ||
+    typeof value.size !== 'number' || typeof value.storagePath !== 'string' ||
+    typeof value.url !== 'string'
+  ) return null
+  return { contentType: 'application/pdf', name: value.name, size: value.size, storagePath: value.storagePath, url: value.url }
 }
 
 export function getAssignmentPreview(content: string) {

@@ -35,3 +35,15 @@
 .assignment-submit-form input { height:56px; }
 .assignment-submit-form textarea:focus, .assignment-submit-form input:focus { border-color:#00c471; }
 .assignment-link-error { margin-top:-12px; color:#de5e56; font-size:12px; }
+.assignment-attachment-field { display:flex; flex-direction:column; gap:8px; }
+.assignment-attachment-field > span { font-size:16px; }
+.assignment-attachment-field > span small { color:rgba(15,23,42,.4); font-size:12px; }
+.assignment-attachment-field > input { display:none; }
+.assignment-attachment-button { height:56px; border:1px dashed rgba(15,23,42,.18); border-radius:12px; background:#fff; color:#00a860; }
+.assignment-attachment-selected, .assignment-attachment-card { display:flex; align-items:center; gap:10px; padding:14px 16px; border:1px solid rgba(15,23,42,.08); border-radius:12px; background:#f9f9f9; color:#172033; text-decoration:none; }
+.assignment-attachment-selected > span, .assignment-attachment-card > span { display:flex; min-width:0; flex:1; flex-direction:column; overflow-wrap:anywhere; }
+.assignment-attachment-selected small, .assignment-attachment-card small { margin-top:3px; color:rgba(15,23,42,.45); font-size:11px; }
+.assignment-attachment-selected button { border:0; background:transparent; color:#de5e56; }
+.assignment-attachment-card img { width:20px; height:20px; }
+.assignment-attachment-card b { color:#00a860; font-size:13px; }
+.leader-submission { display:flex; flex-direction:column; gap:8px; }
