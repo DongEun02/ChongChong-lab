@@ -1,4 +1,5 @@
 import type { User } from '@react-native-firebase/auth';
+import * as Clipboard from 'expo-clipboard';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -29,6 +30,10 @@ import {
   type StudyListPayload,
   type StudyPayload,
 } from '../studies/studyData';
+import {
+  subscribeToStudyMembers,
+  type StudyMemberPayload,
+} from '../studies/memberData';
 
 type AppWebViewScreenProps = {
   onOpenProfile: () => void;
@@ -62,6 +67,10 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
   }
 
   if (value.type === 'join-study') {
+    return 'inviteUrl' in value && typeof value.inviteUrl === 'string';
+  }
+
+  if (value.type === 'copy-invite-link') {
     return 'inviteUrl' in value && typeof value.inviteUrl === 'string';
   }
 
@@ -134,10 +143,19 @@ function createStudyListScript(
   return `window.dispatchEvent(new CustomEvent('chongchong:studies', { detail: ${detail} })); true;`;
 }
 
+function createMemberDataScript(
+  status: 'error' | 'ready',
+  members: StudyMemberPayload[] = [],
+) {
+  const detail = JSON.stringify({ members, status }).replaceAll('<', '\\u003c');
+  return `window.dispatchEvent(new CustomEvent('chongchong:members', { detail: ${detail} })); true;`;
+}
+
 export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps) {
   const webViewRef = useRef<WebView>(null);
   const latestNoticesRef = useRef<NoticePayload[] | undefined>(undefined);
   const latestStudiesRef = useRef<StudyListPayload[] | undefined>(undefined);
+  const latestMembersRef = useRef<StudyMemberPayload[] | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [isStudySelected, setIsStudySelected] = useState(false);
   const [isSubpageOpen, setIsSubpageOpen] = useState(false);
@@ -191,6 +209,27 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
       (error) => {
         console.warn('Notice subscription error', error);
         webViewRef.current?.injectJavaScript(createNoticeDataScript('error'));
+      },
+    );
+  }, [selectedStudyId]);
+
+  useEffect(() => {
+    if (!selectedStudyId) {
+      latestMembersRef.current = undefined;
+      return;
+    }
+
+    return subscribeToStudyMembers(
+      selectedStudyId,
+      (members) => {
+        latestMembersRef.current = members;
+        webViewRef.current?.injectJavaScript(
+          createMemberDataScript('ready', members),
+        );
+      },
+      (error) => {
+        console.warn('Member subscription error', error);
+        webViewRef.current?.injectJavaScript(createMemberDataScript('error'));
       },
     );
   }, [selectedStudyId]);
@@ -323,6 +362,18 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           return;
         }
 
+        if (message.type === 'copy-invite-link') {
+          void Clipboard.setStringAsync(message.inviteUrl)
+            .then(() => {
+              Alert.alert('복사 완료', '초대 링크를 복사했어요.');
+            })
+            .catch((error: unknown) => {
+              console.warn('Invite link copy error', error);
+              Alert.alert('복사 실패', '초대 링크를 복사하지 못했어요.');
+            });
+          return;
+        }
+
         if (message.type === 'open-notice') {
           setIsSubpageOpen(true);
           return;
@@ -426,6 +477,11 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           if (latestStudiesRef.current) {
             webViewRef.current?.injectJavaScript(
               createStudyListScript('ready', latestStudiesRef.current),
+            );
+          }
+          if (latestMembersRef.current) {
+            webViewRef.current?.injectJavaScript(
+              createMemberDataScript('ready', latestMembersRef.current),
             );
           }
         }}

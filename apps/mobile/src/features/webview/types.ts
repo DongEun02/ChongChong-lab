@@ -4,6 +4,7 @@ export type WebViewMessage =
   | { type: 'close-create-study' }
   | { type: 'close-join-study' }
   | { type: 'close-notice' }
+  | { type: 'copy-invite-link'; inviteUrl: string }
   | {
       type: 'create-study';
       description: string;
