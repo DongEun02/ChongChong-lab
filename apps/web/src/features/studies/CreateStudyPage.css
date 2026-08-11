@@ -1,0 +1,164 @@
+.create-study-screen {
+  color: #172033;
+}
+
+.create-study-header {
+  display: flex;
+  height: 64px;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.create-study-header h1 {
+  margin: 0 0 0 -2px;
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.45px;
+  line-height: 28px;
+}
+
+.create-study-mascot {
+  display: block;
+  width: 70px;
+  height: 70px;
+  margin: 32px auto 40px;
+  object-fit: contain;
+}
+
+.create-study-form {
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px 32px;
+}
+
+.create-study-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.create-study-field + .create-study-field {
+  margin-top: 22px;
+}
+
+.create-study-label {
+  margin-bottom: 8px;
+  font-size: 16px;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+}
+
+.create-study-label b {
+  color: #00c471;
+  font-weight: 400;
+}
+
+.create-study-field input,
+.create-study-field textarea,
+.member-limit-select {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
+  font-size: 16px;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+  outline: none;
+}
+
+.create-study-field input {
+  height: 54px;
+  padding: 14px 16px;
+}
+
+.create-study-field textarea {
+  height: 96px;
+  padding: 14px 16px;
+  resize: none;
+}
+
+.create-study-field input:focus,
+.create-study-field textarea:focus,
+.member-limit-select:focus-within {
+  border-color: #00c471;
+}
+
+.create-study-field input[aria-invalid='true'] {
+  border-color: #f04452;
+}
+
+.create-study-field input::placeholder,
+.create-study-field textarea::placeholder,
+.member-limit-select select:invalid {
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.create-study-field small {
+  min-height: 18px;
+  margin-top: 4px;
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 12px;
+  letter-spacing: -0.3px;
+  line-height: 18px;
+}
+
+.create-study-field small.field-error,
+.create-study-error {
+  color: #f04452;
+}
+
+.member-limit-select {
+  position: relative;
+  display: flex;
+  height: 54px;
+  align-items: center;
+}
+
+.member-limit-select select {
+  width: 100%;
+  height: 100%;
+  padding: 14px 48px 14px 16px;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  color: #172033;
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+.member-limit-select img {
+  position: absolute;
+  right: 16px;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+
+.create-study-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.create-study-submit {
+  height: 52px;
+  margin-top: 18px;
+  border: 0;
+  border-radius: 12px;
+  background: #00c471;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+}
+
+.create-study-submit:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
