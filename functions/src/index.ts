@@ -6,6 +6,7 @@ import {
   type DocumentReference,
 } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+import { getStorage } from 'firebase-admin/storage';
 import { logger } from 'firebase-functions';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
@@ -937,6 +938,35 @@ export const submitAssignment = onCall(
     const assignmentReference = studyReference.collection('assignments').doc(input.assignmentId);
     const memberReference = studyReference.collection('members').doc(request.auth.uid);
     const submissionReference = assignmentReference.collection('submissions').doc(request.auth.uid);
+    const expectedAttachmentPrefix = [
+      'assignment-submissions',
+      input.studyId,
+      input.assignmentId,
+      request.auth.uid,
+      '',
+    ].join('/');
+    if (
+      input.attachment &&
+      !input.attachment.storagePath.startsWith(expectedAttachmentPrefix)
+    ) {
+      throw new HttpsError('permission-denied', '본인이 업로드한 파일만 첨부할 수 있습니다.');
+    }
+    if (input.attachment) {
+      try {
+        const [metadata] = await getStorage()
+          .bucket()
+          .file(input.attachment.storagePath)
+          .getMetadata();
+        if (
+          metadata.contentType !== 'application/pdf' ||
+          Number(metadata.size) !== input.attachment.size
+        ) {
+          throw new Error('첨부 파일 정보가 일치하지 않습니다.');
+        }
+      } catch {
+        throw new HttpsError('failed-precondition', '업로드한 PDF 파일을 확인하지 못했습니다.');
+      }
+    }
     const result = await db.runTransaction(async (transaction) => {
       const [studySnapshot, assignmentSnapshot, memberSnapshot, submissionSnapshot] = await Promise.all([
         transaction.get(studyReference),
@@ -953,6 +983,7 @@ export const submitAssignment = onCall(
       const isFirstSubmission = !submissionSnapshot.exists;
       const originalSubmittedAt = submissionSnapshot.get('submittedAt');
       transaction.set(submissionReference, {
+        attachment: input.attachment ?? null,
         content: input.content,
         link: input.link ?? null,
         submittedAt: isFirstSubmission

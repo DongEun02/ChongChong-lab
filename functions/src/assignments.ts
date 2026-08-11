@@ -8,10 +8,18 @@ export type CreateAssignmentRequest = {
 };
 
 export type SubmitAssignmentRequest = {
+  attachment?: AssignmentAttachment;
   assignmentId: string;
   content: string;
   link?: string;
   studyId: string;
+};
+
+export type AssignmentAttachment = {
+  contentType: 'application/pdf';
+  name: string;
+  size: number;
+  storagePath: string;
 };
 
 export type AssignmentReminderRequest = {
@@ -53,6 +61,34 @@ export function parseCreateAssignmentRequest(
   };
 }
 
+function parseAssignmentAttachment(value: unknown): AssignmentAttachment | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    throw new Error('첨부 파일 정보가 올바르지 않습니다.');
+  }
+  const name = parseText(value.name, '파일 이름', 1, 120);
+  if (
+    value.contentType !== 'application/pdf' ||
+    !name.toLowerCase().endsWith('.pdf') ||
+    typeof value.size !== 'number' ||
+    !Number.isInteger(value.size) ||
+    value.size < 1 ||
+    value.size > 10 * 1024 * 1024 ||
+    typeof value.storagePath !== 'string' ||
+    value.storagePath.length > 512
+  ) {
+    throw new Error('10MB 이하의 PDF 파일만 첨부할 수 있습니다.');
+  }
+  return {
+    contentType: 'application/pdf',
+    name,
+    size: value.size,
+    storagePath: value.storagePath,
+  };
+}
+
 export function parseSubmitAssignmentRequest(
   value: unknown,
 ): SubmitAssignmentRequest {
@@ -61,6 +97,7 @@ export function parseSubmitAssignmentRequest(
   }
 
   return {
+    attachment: parseAssignmentAttachment(value.attachment),
     assignmentId: parseDocumentId(value.assignmentId, '과제'),
     content: parseText(value.content, '제출 내용', 1, 3_000),
     link: parseOptionalHttpUrl(value.link),

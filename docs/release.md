@@ -63,6 +63,22 @@ pnpm dlx firebase-tools deploy --only firestore:rules --project chongchong-86716
 
 `firestore.rules`는 로그인한 사용자가 자신의 푸시 토큰 문서만 읽고 쓸 수 있도록 제한합니다. 실제 알림 발송 서버에서는 Firebase Admin SDK를 사용하며 서비스 계정 키를 저장소에 커밋하지 않습니다.
 
+## 과제 PDF 첨부
+
+Firebase Console의 **Storage**에서 `시작하기`를 눌러 기본 버킷을 먼저
+생성합니다. 버킷 위치는 생성 후 변경할 수 없으므로 Firestore와 Functions의
+리전에 맞춰 선택합니다. 그다음 저장소 루트에서 Storage 규칙과 Functions를
+배포합니다.
+
+```bash
+pnpm dlx firebase-tools deploy --only storage,functions --project chongchong-86716
+```
+
+Storage 규칙을 처음 배포할 때 Firestore 문서 조회 권한 연결을 요청하면
+승인합니다. 첨부 파일은 10MB 이하 PDF만 허용되며, 활성 스터디원만 열 수
+있습니다. `expo-document-picker`와 Firebase Storage 네이티브 모듈이 추가되어
+기존 development build에서는 앱을 다시 빌드해야 합니다.
+
 ## 푸시 발송 Functions
 
 Cloud Functions는 Node.js 22 런타임을 사용합니다. 현재 Firestore 데이터베이스 위치가 `nam5`이므로 공식 권장 인접 리전인 `us-central1`에 `deliverPushNotification`을 배포합니다. 배포 전 Firebase 프로젝트를 Blaze 요금제로 전환하고 Cloud Messaging API가 활성화되어 있어야 합니다.

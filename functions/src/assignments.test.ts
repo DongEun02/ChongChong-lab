@@ -36,6 +36,12 @@ test('마감 이후 리마인드를 거부한다', () => {
 
 test('과제 제출 링크와 리마인드 수신자를 검증한다', () => {
   assert.equal(parseSubmitAssignmentRequest({
+    attachment: {
+      contentType: 'application/pdf',
+      name: 'assignment.pdf',
+      size: 1024,
+      storagePath: 'assignment-submissions/study-1/assignment-1/member-1/file.pdf',
+    },
     assignmentId: 'assignment-1',
     content: '풀이 내용',
     link: 'https://github.com/example/pr/1',
@@ -46,6 +52,20 @@ test('과제 제출 링크와 리마인드 수신자를 검증한다', () => {
     recipientUserIds: ['member-1', 'member-1'],
     studyId: 'study-1',
   }).recipientUserIds, ['member-1']);
+});
+
+test('10MB를 넘거나 PDF가 아닌 첨부 파일을 거부한다', () => {
+  assert.throws(() => parseSubmitAssignmentRequest({
+    assignmentId: 'assignment-1',
+    attachment: {
+      contentType: 'image/png',
+      name: 'image.png',
+      size: 1024,
+      storagePath: 'assignment-submissions/study-1/assignment-1/member-1/image.png',
+    },
+    content: '제출 내용',
+    studyId: 'study-1',
+  }), /PDF/);
 });
 
 test('예약 리마인드의 현재 발송 시각과 다음 시각을 구한다', () => {
