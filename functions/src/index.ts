@@ -1377,7 +1377,15 @@ export const deleteAssignment = onCall(
       return typeof assignmentTitle === 'string' ? assignmentTitle : '';
     });
 
-    await deleteAssignmentNotifications(input.studyId, input.assignmentId);
+    try {
+      await deleteAssignmentNotifications(input.studyId, input.assignmentId);
+    } catch (error) {
+      logger.error('Failed to clean up deleted assignment notifications', {
+        assignmentId: input.assignmentId,
+        error,
+        studyId: input.studyId,
+      });
+    }
     return { assignment: { id: input.assignmentId, title } };
   },
 );

@@ -37,6 +37,7 @@ export type WebViewMessage =
   | { type: 'exit-study' }
   | { type: 'join-study'; inviteUrl: string }
   | { type: 'mark-notice-read'; noticeId: string }
+  | { type: 'navigate-study-tab'; tab: AppTab }
   | { type: 'open-notice'; noticeId: string }
   | { type: 'open-create-study' }
   | { type: 'open-create-notice' }

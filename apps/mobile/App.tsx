@@ -22,6 +22,8 @@ export default function App() {
   const [isSplashVisible, setIsSplashVisible] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isProfileVisible, setIsProfileVisible] = useState(false);
+  const [shouldEnablePushAfterSignIn, setShouldEnablePushAfterSignIn] =
+    useState(false);
   const [loginError, setLoginError] = useState<string>();
   const { isInitializing, user } = useAuthSession();
   const pushNotifications = usePushNotifications(user?.uid);
@@ -31,6 +33,33 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (
+      Platform.OS !== 'android' ||
+      !shouldEnablePushAfterSignIn ||
+      !user ||
+      pushNotifications.isBusy
+    ) {
+      return;
+    }
+
+    setShouldEnablePushAfterSignIn(false);
+
+    void pushNotifications.enable().then((result) => {
+      if (result === 'denied') {
+        Alert.alert(
+          '알림 권한이 필요해요',
+          '공지와 과제 리마인드를 받으려면 마이페이지에서 알림을 허용해 주세요.',
+        );
+      }
+    });
+  }, [
+    pushNotifications.enable,
+    pushNotifications.isBusy,
+    shouldEnablePushAfterSignIn,
+    user,
+  ]);
 
   const handleContinue = async (provider: AuthProvider) => {
     if (provider === 'apple') {
@@ -43,6 +72,7 @@ export default function App() {
 
     try {
       await signInWithGoogle();
+      setShouldEnablePushAfterSignIn(true);
     } catch (error) {
       setLoginError(getGoogleAuthErrorMessage(error));
     } finally {
@@ -53,6 +83,7 @@ export default function App() {
   const handleSignOut = async () => {
     try {
       await signOutFromGoogle();
+      setShouldEnablePushAfterSignIn(false);
       setIsProfileVisible(false);
     } catch (error) {
       Alert.alert('로그아웃 실패', getGoogleAuthErrorMessage(error));
