@@ -75,6 +75,13 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     return 'studyId' in value && typeof value.studyId === 'string';
   }
 
+  if (value.type === 'navigate-study-tab') {
+    return (
+      'tab' in value &&
+      ['home', 'notices', 'assignments', 'members'].includes(String(value.tab))
+    );
+  }
+
   if (value.type === 'create-study') {
     return (
       'name' in value &&
@@ -522,6 +529,12 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           setIsSubpageOpen(false);
           setSelectedStudyId(message.studyId);
           setActiveTab('home');
+          return;
+        }
+
+        if (message.type === 'navigate-study-tab') {
+          setActiveTab(message.tab);
+          setIsSubpageOpen(false);
           return;
         }
 

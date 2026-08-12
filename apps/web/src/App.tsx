@@ -87,6 +87,7 @@ type NativeMessage =
   | { type: 'exit-study' }
   | { type: 'join-study'; inviteUrl: string }
   | { type: 'mark-notice-read'; noticeId: string }
+  | { type: 'navigate-study-tab'; tab: TabId }
   | { type: 'open-notice'; noticeId: string }
   | { type: 'open-assignment'; assignmentId: string }
   | { type: 'open-create-assignment' }
@@ -618,6 +619,8 @@ function App() {
     setActiveTab('home')
     setMembers(window.ReactNativeWebView ? [] : PREVIEW_MEMBERS)
     setMemberDataStatus(window.ReactNativeWebView ? 'loading' : 'ready')
+    setNotices(window.ReactNativeWebView ? [] : NOTICE_DETAILS)
+    setNoticeDataStatus(window.ReactNativeWebView ? 'loading' : 'ready')
     setAssignments(window.ReactNativeWebView ? [] : ASSIGNMENT_PREVIEW)
     setAssignmentDataStatus(window.ReactNativeWebView ? 'loading' : 'ready')
     postToNative({ type: 'study-selected', studyId: study.id })
@@ -942,6 +945,13 @@ function App() {
     postToNative({ type: 'open-notice', noticeId })
   }
 
+  const navigateToStudyTab = (tab: TabId) => {
+    setActiveTab(tab)
+    setSelectedNoticeId(null)
+    setSelectedAssignmentId(null)
+    postToNative({ tab, type: 'navigate-study-tab' })
+  }
+
   const closeNotice = () => {
     setSelectedNoticeId(null)
     postToNative({ type: 'close-notice' })
@@ -1178,6 +1188,7 @@ function App() {
       onCreateAssignment={openCreateAssignment}
       onOpenAssignment={openAssignment}
       onOpenNotifications={openNotifications}
+      onNavigateToTab={navigateToStudyTab}
     />
   )
 }
@@ -1290,6 +1301,7 @@ type StudyPageProps = {
   onCreateAssignment: () => void
   onOpenAssignment: (assignmentId: string) => void
   onOpenNotifications: () => void
+  onNavigateToTab: (tab: TabId) => void
 }
 
 function StudyPage({
@@ -1312,6 +1324,7 @@ function StudyPage({
   onCreateAssignment,
   onOpenAssignment,
   onOpenNotifications,
+  onNavigateToTab,
 }: StudyPageProps) {
   if (activeTab === 'members') {
     return (
@@ -1348,7 +1361,17 @@ function StudyPage({
       </header>
 
       {activeTab === 'home' ? (
-        <StudyHome displayName={displayName} study={study} />
+        <StudyHome
+          assignmentDataStatus={assignmentDataStatus}
+          assignments={assignments}
+          displayName={displayName}
+          noticeDataStatus={noticeDataStatus}
+          notices={notices}
+          onNavigateToTab={onNavigateToTab}
+          onOpenAssignment={onOpenAssignment}
+          onOpenNotice={onOpenNotice}
+          study={study}
+        />
       ) : activeTab === 'notices' ? (
         <NoticeListPage
           dataStatus={noticeDataStatus}
@@ -1373,12 +1396,41 @@ function StudyPage({
 }
 
 function StudyHome({
+  assignmentDataStatus,
+  assignments,
   displayName,
+  noticeDataStatus,
+  notices,
+  onNavigateToTab,
+  onOpenAssignment,
+  onOpenNotice,
   study,
 }: {
+  assignmentDataStatus: AssignmentDataStatus
+  assignments: AssignmentSummary[]
   displayName: string
+  noticeDataStatus: NoticeDataStatus
+  notices: NoticeDetail[]
+  onNavigateToTab: (tab: TabId) => void
+  onOpenAssignment: (assignmentId: string) => void
+  onOpenNotice: (noticeId: string) => void
   study: StudySummary
 }) {
+  const pendingNotices = notices.filter((notice) =>
+    study.role === 'leader'
+      ? notice.readCount < notice.totalMemberCount
+      : !notice.isReadByCurrentUser,
+  )
+  const pendingAssignments = assignments.filter((assignment) =>
+    study.role === 'leader'
+      ? assignment.submittedCount < assignment.totalMemberCount
+      : !assignment.isSubmitted,
+  )
+  const isLoading =
+    noticeDataStatus === 'loading' || assignmentDataStatus === 'loading'
+  const hasError =
+    noticeDataStatus === 'error' || assignmentDataStatus === 'error'
+
   return (
     <section className="study-home-content">
       <div className="today-card">
@@ -1389,34 +1441,44 @@ function StudyHome({
 
       <p className="subsection-title">스터디 현황</p>
       <div className="status-cards">
-        <button className="status-card" type="button">
+        <button className="status-card" onClick={() => onNavigateToTab('notices')} type="button">
           <img alt="" src={homeNoticeIcon} />
-          <strong>{study.unreadNotices}</strong>
+          <strong>{pendingNotices.length}</strong>
           <span>공지</span>
-          <small>읽음 {study.id === STUDY.id ? 6 : 0}건</small>
+          <small>읽음 {notices.reduce((total, notice) => total + notice.readCount, 0)}건</small>
         </button>
-        <button className="status-card" type="button">
+        <button className="status-card" onClick={() => onNavigateToTab('assignments')} type="button">
           <img alt="" src={homeAssignmentIcon} />
-          <strong>{study.pendingAssignments}</strong>
+          <strong>{pendingAssignments.length}</strong>
           <span>과제</span>
-          <small>제출 {study.id === STUDY.id ? 1 : 0}건</small>
+          <small>제출 {assignments.reduce((total, assignment) => total + assignment.submittedCount, 0)}건</small>
         </button>
       </div>
 
-      {study.id === STUDY.id ? (
-        <>
-          <button className="todo-card" type="button">
-            <img alt="" src={homeNoticeIcon} />
-            <span>8월 스터디 운영 방식이 바뀝니다</span>
-            <small>2/4 읽음</small>
-          </button>
+      {pendingNotices.map((notice) => (
+        <button className="todo-card" key={notice.id} onClick={() => onOpenNotice(notice.id)} type="button">
+          <img alt="" src={homeNoticeIcon} />
+          <span>{notice.title}</span>
+          <small>{notice.readCount}/{notice.totalMemberCount} 읽음</small>
+        </button>
+      ))}
 
-          <button className="todo-card" type="button">
-            <img alt="" src={homeAssignmentIcon} />
-            <span>리액트 렌더링 최적화 정리</span>
-            <small>1/4 제출</small>
-          </button>
-        </>
+      {pendingAssignments.map((assignment) => (
+        <button className="todo-card" key={assignment.id} onClick={() => onOpenAssignment(assignment.id)} type="button">
+          <img alt="" src={homeAssignmentIcon} />
+          <span>{assignment.title}</span>
+          <small>{assignment.submittedCount}/{assignment.totalMemberCount} 제출</small>
+        </button>
+      ))}
+
+      {isLoading && pendingNotices.length === 0 && pendingAssignments.length === 0 ? (
+        <p className="study-home-state">현황을 불러오고 있어요.</p>
+      ) : null}
+      {!isLoading && hasError && pendingNotices.length === 0 && pendingAssignments.length === 0 ? (
+        <p className="study-home-state">현황을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>
+      ) : null}
+      {!isLoading && !hasError && pendingNotices.length === 0 && pendingAssignments.length === 0 ? (
+        <p className="study-home-state">확인할 공지와 과제가 없어요.</p>
       ) : null}
     </section>
   )
