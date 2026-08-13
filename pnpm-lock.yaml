@@ -39,6 +39,9 @@ importers:
       expo:
         specifier: ~57.0.12
         version: 57.0.12(@babel/core@7.29.7(supports-color@8.1.1))(@expo/dom-webview@57.0.1)(react-dom@19.2.3(react@19.2.3))(react-native-webview@13.16.1(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3))(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1)(typescript@6.0.3)
+      expo-build-properties:
+        specifier: ~57.0.10
+        version: 57.0.10(expo@57.0.12)
       expo-clipboard:
         specifier: ~57.0.1
         version: 57.0.1(expo@57.0.12)(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)
@@ -2352,6 +2355,11 @@ packages:
       expo: '*'
       react: 19.2.3
       react-native: '*'
+
+  expo-build-properties@57.0.10:
+    resolution: {integrity: sha512-twFB1IyA1WM3hGUdnEGTWqBsmdtQMIx6SBozlmhQRnocX9Kb8fDTMAAQOsjB3fqJeXUprIeuCpO+gO3MldJ7tQ==}
+    peerDependencies:
+      expo: '*'
 
   expo-clipboard@57.0.1:
     resolution: {integrity: sha512-HWICri4+1ao7S6QEfcorxVumXDiDnx1guGGewjZgGJWLGxFYs0RgH8ujBs+lkTzBkMmlwADaWSlaesR+nDJt5Q==}
@@ -7386,6 +7394,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
       - typescript
+
+  expo-build-properties@57.0.10(expo@57.0.12):
+    dependencies:
+      '@expo/schema-utils': 57.0.2
+      expo: 57.0.12(@babel/core@7.29.7(supports-color@8.1.1))(@expo/dom-webview@57.0.1)(react-dom@19.2.3(react@19.2.3))(react-native-webview@13.16.1(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3))(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1)(typescript@6.0.3)
+      resolve-from: 5.0.0
+      semver: 7.8.5
 
   expo-clipboard@57.0.1(expo@57.0.12)(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3):
     dependencies:
