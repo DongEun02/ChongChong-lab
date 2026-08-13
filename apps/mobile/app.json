@@ -48,7 +48,8 @@
           "resizeMode": "contain"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-build-properties"
     ],
     "extra": {
       "eas": {
