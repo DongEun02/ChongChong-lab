@@ -1,7 +1,6 @@
 import type { User } from '@react-native-firebase/auth';
 import { StatusBar } from 'expo-status-bar';
 import {
-  Alert,
   Linking,
   Pressable,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAlertModal } from '../../components/AlertModal';
 import {
   ACCOUNT_DELETION_URL,
   PRIVACY_POLICY_URL,
@@ -36,12 +36,13 @@ export function AuthenticatedScreen({
   pushNotifications,
 }: AuthenticatedScreenProps) {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const { showAlert } = useAlertModal();
   const handlePushNotificationChange = async (nextValue: boolean) => {
     if (nextValue) {
       const result = await pushNotifications.enable();
 
       if (result === 'denied') {
-        Alert.alert(
+        showAlert(
           '알림 권한이 필요해요',
           '기기 설정에서 총총의 알림을 허용해 주세요.',
           [
@@ -63,7 +64,7 @@ export function AuthenticatedScreen({
   };
 
   const confirmDeleteAccount = () => {
-    Alert.alert(
+    showAlert(
       '회원탈퇴를 진행할까요?',
       '계정과 개인 데이터가 삭제되며 복구할 수 없어요. 리드인 스터디가 있다면 먼저 다른 멤버에게 양도해야 해요.',
       [
@@ -73,7 +74,7 @@ export function AuthenticatedScreen({
             setIsDeletingAccount(true);
             void onDeleteAccount()
               .catch((error: unknown) => {
-                Alert.alert(
+                showAlert(
                   '탈퇴하지 못했어요',
                   error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.',
                 );
