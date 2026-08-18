@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Platform } from 'react-native';
+import { Modal, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import {
+  AlertModalProvider,
+  useAlertModal,
+} from './src/components/AlertModal';
 import { AuthenticatedScreen } from './src/features/auth/AuthenticatedScreen';
 import { deleteAccount, getAccountErrorMessage } from './src/features/auth/accountData';
 import {
@@ -19,6 +23,16 @@ import { AppWebViewScreen } from './src/features/webview/AppWebViewScreen';
 const SPLASH_DURATION_MS = 1_500;
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AlertModalProvider>
+        <AppContent />
+      </AlertModalProvider>
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent() {
   const [isSplashVisible, setIsSplashVisible] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isProfileVisible, setIsProfileVisible] = useState(false);
@@ -27,6 +41,7 @@ export default function App() {
   const [loginError, setLoginError] = useState<string>();
   const { isInitializing, user } = useAuthSession();
   const pushNotifications = usePushNotifications(user?.uid);
+  const { showAlert } = useAlertModal();
 
   useEffect(() => {
     const timer = setTimeout(() => setIsSplashVisible(false), SPLASH_DURATION_MS);
@@ -48,7 +63,7 @@ export default function App() {
 
     void pushNotifications.enable().then((result) => {
       if (result === 'denied') {
-        Alert.alert(
+        showAlert(
           '알림 권한이 필요해요',
           '공지와 과제 리마인드를 받으려면 마이페이지에서 알림을 허용해 주세요.',
         );
@@ -58,12 +73,13 @@ export default function App() {
     pushNotifications.enable,
     pushNotifications.isBusy,
     shouldEnablePushAfterSignIn,
+    showAlert,
     user,
   ]);
 
   const handleContinue = async (provider: AuthProvider) => {
     if (provider === 'apple') {
-      Alert.alert('Apple 로그인', 'iOS Firebase 설정과 함께 연결할게요.');
+      showAlert('Apple 로그인', 'iOS Firebase 설정과 함께 연결할게요.');
       return;
     }
 
@@ -86,7 +102,7 @@ export default function App() {
       setShouldEnablePushAfterSignIn(false);
       setIsProfileVisible(false);
     } catch (error) {
-      Alert.alert('로그아웃 실패', getGoogleAuthErrorMessage(error));
+      showAlert('로그아웃 실패', getGoogleAuthErrorMessage(error));
     }
   };
 
@@ -103,7 +119,7 @@ export default function App() {
   const shouldShowSplash = isSplashVisible || isInitializing;
 
   return (
-    <SafeAreaProvider>
+    <>
       {shouldShowSplash ? (
         <SplashScreen />
       ) : user ? (
@@ -135,6 +151,6 @@ export default function App() {
           provider={Platform.OS === 'ios' ? 'apple' : 'google'}
         />
       )}
-    </SafeAreaProvider>
+    </>
   );
 }
