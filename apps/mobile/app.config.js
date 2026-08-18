@@ -15,6 +15,9 @@ module.exports = ({ config }) => {
           android: {
             targetSdkVersion,
           },
+          ios: {
+            useFrameworks: 'static',
+          },
         },
       ],
     ],

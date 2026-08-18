@@ -9,6 +9,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
+      "buildNumber": "1",
+      "bundleIdentifier": "com.chongchong.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
       "supportsTablet": false
     },
     "android": {
