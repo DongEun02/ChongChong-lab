@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   Linking,
   Platform,
@@ -16,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
+import { useAlertModal } from '../../components/AlertModal';
 import { BottomTabBar } from './BottomTabBar';
 import type { AppTab, WebViewMessage } from './types';
 import {
@@ -338,6 +338,7 @@ function createNotificationDataScript(
 }
 
 export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps) {
+  const { showAlert } = useAlertModal();
   const webViewRef = useRef<WebView>(null);
   const latestAssignmentsRef = useRef<AssignmentPayload[] | undefined>(
     undefined,
@@ -388,7 +389,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
             "window.dispatchEvent(new CustomEvent('chongchong:exit-study')); true;",
           );
           if (!wasDeletedByCurrentUser) {
-            Alert.alert(
+            showAlert(
               '스터디 이용이 종료되었어요',
               '리드가 멤버에서 제외했거나 스터디를 삭제했어요.',
             );
@@ -403,7 +404,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         webViewRef.current?.injectJavaScript(createStudyListScript('error'));
       },
     );
-  }, [selectedStudyId, user.uid]);
+  }, [selectedStudyId, showAlert, user.uid]);
 
   useEffect(() => {
     return subscribeToNotifications(
@@ -582,7 +583,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           void readNotification(message.notificationId).catch(
             (error: unknown) => {
               console.warn('Notification read error', error);
-              Alert.alert(
+              showAlert(
                 '알림을 열지 못했어요',
                 '읽음 상태를 저장하지 못했어요. 다시 시도해 주세요.',
               );
@@ -687,22 +688,22 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         if (message.type === 'copy-invite-link') {
           void Clipboard.setStringAsync(message.inviteUrl)
             .then(() => {
-              Alert.alert('복사 완료', '초대 링크를 복사했어요.');
+              showAlert('복사 완료', '초대 링크를 복사했어요.');
             })
             .catch((error: unknown) => {
               console.warn('Invite link copy error', error);
-              Alert.alert('복사 실패', '초대 링크를 복사하지 못했어요.');
+              showAlert('복사 실패', '초대 링크를 복사하지 못했어요.');
             });
           return;
         }
 
         if (message.type === 'remove-study-member') {
           if (!selectedStudyId) {
-            Alert.alert('방출 실패', '선택한 스터디 정보를 찾지 못했어요.');
+            showAlert('방출 실패', '선택한 스터디 정보를 찾지 못했어요.');
             return;
           }
 
-          Alert.alert(
+          showAlert(
             '스터디원을 방출할까요?',
             `${message.displayName}님은 이 스터디를 더 이상 이용할 수 없어요.`,
             [
@@ -711,14 +712,14 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
                 onPress: () => {
                   void removeStudyMember(selectedStudyId, message.memberId)
                     .then(() => {
-                      Alert.alert(
+                      showAlert(
                         '방출 완료',
                         `${message.displayName}님을 스터디에서 방출했어요.`,
                       );
                     })
                     .catch((error: unknown) => {
                       console.warn('Study member removal error', error);
-                      Alert.alert(
+                      showAlert(
                         '방출하지 못했어요',
                         getCallableErrorMessage(
                           error,
@@ -737,10 +738,10 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
 
         if (message.type === 'transfer-study-leadership') {
           if (!selectedStudyId) {
-            Alert.alert('양도 실패', '선택한 스터디 정보를 찾지 못했어요.');
+            showAlert('양도 실패', '선택한 스터디 정보를 찾지 못했어요.');
             return;
           }
-          Alert.alert(
+          showAlert(
             '리드를 양도할까요?',
             `${message.displayName}님이 새로운 리드가 되며, 양도 후에는 스터디 관리 권한을 잃게 돼요.`,
             [
@@ -748,10 +749,10 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
               {
                 onPress: () => {
                   void transferStudyLeadership(selectedStudyId, message.memberId)
-                    .then(() => Alert.alert('양도 완료', `${message.displayName}님에게 리드를 양도했어요.`))
+                    .then(() => showAlert('양도 완료', `${message.displayName}님에게 리드를 양도했어요.`))
                     .catch((error: unknown) => {
                       console.warn('Study leadership transfer error', error);
-                      Alert.alert('양도하지 못했어요', getCallableErrorMessage(error, '잠시 후 다시 시도해 주세요.'));
+                      showAlert('양도하지 못했어요', getCallableErrorMessage(error, '잠시 후 다시 시도해 주세요.'));
                     });
                 },
                 text: '양도하기',
@@ -763,11 +764,11 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
 
         if (message.type === 'delete-study') {
           if (!selectedStudyId) {
-            Alert.alert('삭제 실패', '선택한 스터디 정보를 찾지 못했어요.');
+            showAlert('삭제 실패', '선택한 스터디 정보를 찾지 못했어요.');
             return;
           }
 
-          Alert.alert(
+          showAlert(
             '스터디를 삭제할까요?',
             `${message.studyName}의 공지, 과제, 멤버 정보가 모두 삭제되며 되돌릴 수 없어요.`,
             [
@@ -785,7 +786,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
                         "window.dispatchEvent(new CustomEvent('chongchong:exit-study')); true;",
                       );
                       deletingStudyIdRef.current = undefined;
-                      Alert.alert(
+                      showAlert(
                         '삭제 완료',
                         `${message.studyName} 스터디를 삭제했어요.`,
                       );
@@ -793,7 +794,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
                     .catch((error: unknown) => {
                       deletingStudyIdRef.current = undefined;
                       console.warn('Study deletion error', error);
-                      Alert.alert(
+                      showAlert(
                         '삭제하지 못했어요',
                         getCallableErrorMessage(
                           error,
@@ -823,7 +824,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
           void markNoticeRead(selectedStudyId, message.noticeId).catch(
             (error: unknown) => {
               console.warn('Notice read error', error);
-              Alert.alert(
+              showAlert(
                 '읽음 처리에 실패했어요',
                 getCallableErrorMessage(error, '잠시 후 다시 시도해 주세요.'),
               );
@@ -839,7 +840,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
 
         if (message.type === 'send-notice-reminder') {
           if (!selectedStudyId) {
-            Alert.alert('발송 실패', '선택한 스터디 정보를 찾지 못했어요.');
+            showAlert('발송 실패', '선택한 스터디 정보를 찾지 못했어요.');
             return;
           }
 
@@ -849,14 +850,14 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
             message.memberIds,
           )
             .then(({ targetCount }) => {
-              Alert.alert(
+              showAlert(
                 '리마인드 발송 완료',
                 `미확인 ${targetCount}명에게 푸시 알림을 요청했어요.`,
               );
             })
             .catch((error: unknown) => {
               console.warn('Notice reminder error', error);
-              Alert.alert(
+              showAlert(
                 '리마인드를 보내지 못했어요',
                 '잠시 후 다시 시도해 주세요.',
               );
@@ -867,10 +868,10 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         if (message.type === 'send-assignment-reminder') {
           if (!selectedStudyId) return;
           void requestAssignmentReminder(selectedStudyId, message.assignmentId, message.memberIds)
-            .then(({ targetCount }) => Alert.alert('리마인드 발송 완료', `미제출 ${targetCount}명에게 푸시 알림을 요청했어요.`))
+            .then(({ targetCount }) => showAlert('리마인드 발송 완료', `미제출 ${targetCount}명에게 푸시 알림을 요청했어요.`))
             .catch((error: unknown) => {
               console.warn('Assignment reminder error', error);
-              Alert.alert('리마인드를 보내지 못했어요', getCallableErrorMessage(error, '잠시 후 다시 시도해 주세요.'));
+              showAlert('리마인드를 보내지 못했어요', getCallableErrorMessage(error, '잠시 후 다시 시도해 주세요.'));
             });
           return;
         }
@@ -1049,7 +1050,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         // 타입이 지정되지 않은 WebView 메시지는 무시합니다.
       }
     },
-    [onOpenProfile, selectedStudyId],
+    [onOpenProfile, selectedStudyId, showAlert],
   );
 
   const handleNavigationRequest = useCallback(
