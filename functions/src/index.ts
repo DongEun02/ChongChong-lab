@@ -32,6 +32,7 @@ import {
   parseUpdateNoticeRequest,
 } from './notices.js';
 import { parseReadNotificationRequest } from './notifications.js';
+import { parseUpdateProfileRequest } from './profiles.js';
 
 import {
   chunkTargets,
@@ -52,6 +53,56 @@ if (getApps().length === 0) {
 }
 
 const db = getFirestore();
+
+export const updateProfile = onCall(
+  {
+    enforceAppCheck: false,
+    maxInstances: 10,
+    memory: '256MiB',
+    region: 'us-central1',
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+    }
+
+    let input;
+    try {
+      input = parseUpdateProfileRequest(request.data);
+    } catch (error) {
+      throw new HttpsError('invalid-argument', getErrorMessage(error));
+    }
+
+    const userStudies = await db
+      .collection('users')
+      .doc(request.auth.uid)
+      .collection('studies')
+      .get();
+    const memberReferences = userStudies.docs.map((study) =>
+      db.collection('studies').doc(study.id).collection('members').doc(request.auth!.uid),
+    );
+    const memberSnapshots = memberReferences.length > 0
+      ? await db.getAll(...memberReferences)
+      : [];
+
+    const batch = db.batch();
+    for (const member of memberSnapshots) {
+      if (member.exists && member.get('status') === 'active') {
+        batch.update(member.ref, { displayName: input.displayName });
+      }
+    }
+
+    await Promise.all([
+      getAdminAuth().updateUser(request.auth.uid, {
+        displayName: input.displayName,
+      }),
+      batch.commit(),
+    ]);
+
+    return { displayName: input.displayName };
+  },
+);
 
 export const createStudy = onCall(
   {

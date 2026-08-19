@@ -1,23 +1,22 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { User } from '@react-native-firebase/auth';
 import { StatusBar } from 'expo-status-bar';
+import { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Linking,
   Pressable,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
-import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAlertModal } from '../../components/AlertModal';
-import {
-  ACCOUNT_DELETION_URL,
-  PRIVACY_POLICY_URL,
-  SUPPORT_EMAIL_URL,
-  TERMS_OF_SERVICE_URL,
-} from '../legal/legalLinks';
+import { PRIVACY_POLICY_URL, SUPPORT_EMAIL_URL } from '../legal/legalLinks';
 import type { UsePushNotificationsResult } from '../notifications/usePushNotifications';
 
 type AuthenticatedScreenProps = {
@@ -25,38 +24,65 @@ type AuthenticatedScreenProps = {
   onClose?: () => void;
   onDeleteAccount: () => Promise<void>;
   onSignOut: () => void;
+  onUpdateDisplayName: (displayName: string) => Promise<string>;
   pushNotifications: UsePushNotificationsResult;
 };
+
+const MAX_DISPLAY_NAME_LENGTH = 8;
 
 export function AuthenticatedScreen({
   user,
   onClose,
   onDeleteAccount,
   onSignOut,
+  onUpdateDisplayName,
   pushNotifications,
 }: AuthenticatedScreenProps) {
+  const initialDisplayName = useMemo(() => getDisplayName(user), [user]);
+  const [displayName, setDisplayName] = useState(initialDisplayName);
+  const [savedDisplayName, setSavedDisplayName] = useState(initialDisplayName);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const { showAlert } = useAlertModal();
+  const normalizedDisplayName = displayName.trim();
+  const isDisplayNameTooLong = Array.from(normalizedDisplayName).length > MAX_DISPLAY_NAME_LENGTH;
+  const canUpdateProfile =
+    normalizedDisplayName.length > 0 &&
+    !isDisplayNameTooLong &&
+    normalizedDisplayName !== savedDisplayName &&
+    !isUpdatingProfile;
+
+  const handleUpdateProfile = async () => {
+    if (!canUpdateProfile) return;
+
+    setIsUpdatingProfile(true);
+    try {
+      const nextDisplayName = await onUpdateDisplayName(normalizedDisplayName);
+      setDisplayName(nextDisplayName);
+      setSavedDisplayName(nextDisplayName);
+    } catch (error) {
+      showAlert(
+        '프로필을 수정하지 못했어요',
+        error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.',
+      );
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
   const handlePushNotificationChange = async (nextValue: boolean) => {
     if (nextValue) {
       const result = await pushNotifications.enable();
-
       if (result === 'denied') {
         showAlert(
           '알림 권한이 필요해요',
           '기기 설정에서 총총의 알림을 허용해 주세요.',
           [
             { text: '취소', style: 'cancel' },
-            {
-              text: '설정 열기',
-              onPress: () => {
-                void Linking.openSettings();
-              },
-            },
+            { text: '설정 열기', onPress: () => void Linking.openSettings() },
           ],
         );
       }
-
       return;
     }
 
@@ -65,7 +91,7 @@ export function AuthenticatedScreen({
 
   const confirmDeleteAccount = () => {
     showAlert(
-      '회원탈퇴를 진행할까요?',
+      '회원 탈퇴를 진행할까요?',
       '계정과 개인 데이터가 삭제되며 복구할 수 없어요. 리드인 스터디가 있다면 먼저 다른 멤버에게 양도해야 해요.',
       [
         { style: 'cancel', text: '취소' },
@@ -91,248 +117,190 @@ export function AuthenticatedScreen({
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <StatusBar style="dark" />
-
-      {onClose ? (
-        <View style={styles.header}>
+      <View style={styles.header}>
+        <Text style={styles.brand}>총총</Text>
+        {onClose ? (
           <Pressable
             accessibilityLabel="마이페이지 닫기"
             accessibilityRole="button"
             hitSlop={8}
             onPress={onClose}
+            style={({ pressed }) => [styles.closeButton, pressed && styles.pressedButton]}
+          >
+            <Ionicons color="#111111" name="close-outline" size={34} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.avatar}>
+          <Ionicons color="#FFFFFF" name="person" size={47} />
+        </View>
+
+        <View style={styles.profileForm}>
+          <Text style={styles.inputLabel}>이름</Text>
+          <TextInput
+            accessibilityLabel="프로필 이름"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isUpdatingProfile}
+            maxLength={20}
+            onChangeText={setDisplayName}
+            returnKeyType="done"
+            style={[styles.nameInput, isDisplayNameTooLong && styles.invalidInput]}
+            value={displayName}
+          />
+          <Text style={[styles.inputGuide, isDisplayNameTooLong && styles.inputError]}>
+            {isDisplayNameTooLong
+              ? '이름은 8글자 이하로 입력할 수 있어요'
+              : '다른 사람에게도 표시되는 이름이에요'}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={!canUpdateProfile}
+            onPress={() => void handleUpdateProfile()}
             style={({ pressed }) => [
-              styles.closeButton,
+              styles.updateButton,
+              !canUpdateProfile && styles.disabledButton,
               pressed && styles.pressedButton,
             ]}
           >
-            <Text style={styles.closeLabel}>닫기</Text>
+            {isUpdatingProfile ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.updateButtonLabel}>프로필 수정하기</Text>
+            )}
           </Pressable>
         </View>
-      ) : null}
 
-      <View style={styles.content}>
-        <Text style={styles.eyebrow}>MY PAGE</Text>
-        <Text style={styles.title}>내 정보</Text>
-        <Text style={styles.description}>
-          {user.displayName ?? user.email ?? '총총 사용자'}님, 환영해요.
-        </Text>
-        <Text style={styles.guide}>로그인 계정과 알림 설정을 관리할 수 있어요.</Text>
-
-        <View style={styles.pushSetting}>
-          <View style={styles.pushCopy}>
-            <Text style={styles.pushLabel}>푸시 알림</Text>
-            <Text style={styles.pushDescription}>
-              {getPushDescription(pushNotifications.status)}
-            </Text>
+        <View style={styles.settings}>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>푸시 알림</Text>
+            <Switch
+              accessibilityLabel="푸시 알림"
+              disabled={pushNotifications.isBusy}
+              onValueChange={(value) => void handlePushNotificationChange(value)}
+              thumbColor="#FFFFFF"
+              trackColor={{ false: '#CBD5E1', true: '#00C471' }}
+              value={pushNotifications.isEnabled}
+            />
           </View>
-          <Switch
-            accessibilityLabel="푸시 알림"
-            disabled={pushNotifications.isBusy}
-            onValueChange={(value) => {
-              void handlePushNotificationChange(value);
-            }}
-            thumbColor="#FFFFFF"
-            trackColor={{ false: '#CBD5E1', true: '#00C471' }}
-            value={pushNotifications.isEnabled}
+          <ProfileAction color="#FF6B61" label="로그아웃" onPress={onSignOut} />
+          <ProfileAction label="개인정보처리방침" onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)} />
+          <ProfileAction label="지원" onPress={() => void Linking.openURL(SUPPORT_EMAIL_URL)} />
+          <ProfileAction
+            color="rgba(15, 23, 42, 0.45)"
+            disabled={isDeletingAccount}
+            label={isDeletingAccount ? '탈퇴 처리 중...' : '회원 탈퇴'}
+            onPress={confirmDeleteAccount}
           />
         </View>
-
-        <View style={styles.legalLinks}>
-          <Pressable
-            accessibilityRole="link"
-            onPress={() => void Linking.openURL(TERMS_OF_SERVICE_URL)}
-          >
-            <Text style={styles.legalLinkLabel}>서비스 이용약관</Text>
-          </Pressable>
-          <Text style={styles.legalLinkDivider}>·</Text>
-          <Pressable
-            accessibilityRole="link"
-            onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
-          >
-            <Text style={styles.legalLinkLabel}>개인정보처리방침</Text>
-          </Pressable>
-          <Text style={styles.legalLinkDivider}>·</Text>
-          <Pressable
-            accessibilityRole="link"
-            onPress={() => void Linking.openURL(SUPPORT_EMAIL_URL)}
-          >
-            <Text style={styles.legalLinkLabel}>문의하기</Text>
-          </Pressable>
-          <Text style={styles.legalLinkDivider}>·</Text>
-          <Pressable
-            accessibilityRole="link"
-            onPress={() => void Linking.openURL(ACCOUNT_DELETION_URL)}
-          >
-            <Text style={styles.legalLinkLabel}>계정 삭제 안내</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      <Pressable
-        accessibilityRole="button"
-        disabled={isDeletingAccount}
-        onPress={confirmDeleteAccount}
-        style={({ pressed }) => [styles.deleteAccountButton, pressed && styles.pressedButton]}
-      >
-        <Text style={styles.deleteAccountLabel}>{isDeletingAccount ? '탈퇴 처리 중...' : '회원탈퇴'}</Text>
-      </Pressable>
-
-      <Pressable
-        accessibilityRole="button"
-        disabled={isDeletingAccount}
-        onPress={onSignOut}
-        style={({ pressed }) => [
-          styles.signOutButton,
-          pressed && styles.pressedButton,
-        ]}
-      >
-        <Text style={styles.signOutLabel}>로그아웃</Text>
-      </Pressable>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
+function ProfileAction({
+  color = '#111111',
+  disabled = false,
+  label,
+  onPress,
+}: {
+  color?: string;
+  disabled?: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.actionRow, pressed && styles.pressedButton]}
+    >
+      <Text style={[styles.actionLabel, { color }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function getDisplayName(user: User) {
+  if (user.displayName?.trim()) return user.displayName.trim();
+  if (user.email?.includes('@')) return user.email.slice(0, user.email.indexOf('@')).slice(0, 8);
+  return '총총이';
+}
+
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
-    height: 56,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  closeButton: {
-    minWidth: 44,
-    height: 44,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  closeLabel: {
-    color: '#172033',
-    fontSize: 16,
-  },
-  eyebrow: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 1.2,
-  },
-  title: {
-    marginTop: 12,
-    color: '#172033',
-    fontSize: 26,
-    fontWeight: '700',
-  },
-  description: {
-    marginTop: 10,
-    color: '#334155',
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
-  },
-  guide: {
-    maxWidth: 280,
-    marginTop: 24,
-    color: '#64748B',
-    fontSize: 13,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  pushSetting: {
-    width: '100%',
-    marginTop: 36,
-    paddingVertical: 16,
+    height: 64,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
   },
-  pushCopy: {
-    flex: 1,
-    paddingRight: 20,
+  brand: {
+    color: '#00C471',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -1.4,
+    lineHeight: 36,
   },
-  pushLabel: {
-    color: '#111111',
-    fontSize: 18,
-    fontWeight: '400',
-    letterSpacing: -0.45,
-    lineHeight: 28,
-  },
-  pushDescription: {
-    marginTop: 2,
-    color: 'rgba(15, 23, 42, 0.7)',
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  legalLinks: {
-    marginTop: 20,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  closeButton: { width: 44, height: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  content: { paddingHorizontal: 20, paddingBottom: 40 },
+  avatar: {
+    width: 70,
+    height: 70,
+    marginTop: 16,
+    alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    borderRadius: 35,
+    backgroundColor: '#858B97',
   },
-  legalLinkLabel: {
-    color: '#64748B',
+  profileForm: { marginTop: 29 },
+  inputLabel: { color: '#111111', fontSize: 16, lineHeight: 28, letterSpacing: -0.4 },
+  nameInput: {
+    height: 54,
+    marginTop: 2,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#00C471',
+    borderRadius: 12,
+    color: '#172033',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  invalidInput: { borderColor: '#FF6B61' },
+  inputGuide: {
+    marginTop: 6,
+    color: 'rgba(15, 23, 42, 0.45)',
     fontSize: 12,
     lineHeight: 18,
-    textDecorationLine: 'underline',
   },
-  legalLinkDivider: {
-    color: '#CBD5E1',
-    fontSize: 12,
-  },
-  signOutButton: {
+  inputError: { color: '#FF6B61' },
+  updateButton: {
     height: 52,
-    marginBottom: 18,
+    marginTop: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#00C471',
   },
-  deleteAccountButton: {
-    height: 44,
+  disabledButton: { backgroundColor: '#A9ADB7' },
+  updateButtonLabel: { color: '#FFFFFF', fontSize: 16, lineHeight: 24, letterSpacing: -0.4 },
+  settings: { marginTop: 70 },
+  settingRow: {
+    minHeight: 44,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
-  deleteAccountLabel: {
-    color: '#DE5E56',
-    fontSize: 14,
-  },
-  pressedButton: {
-    opacity: 0.72,
-  },
-  signOutLabel: {
-    color: '#334155',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  settingLabel: { color: '#111111', fontSize: 16, lineHeight: 28, letterSpacing: -0.4 },
+  actionRow: { minHeight: 44, justifyContent: 'center' },
+  actionLabel: { fontSize: 16, lineHeight: 28, letterSpacing: -0.4 },
+  pressedButton: { opacity: 0.65 },
 });
-
-function getPushDescription(status: UsePushNotificationsResult['status']) {
-  if (status === 'enabled') {
-    return '공지와 리마인드 알림을 받을 수 있어요.';
-  }
-
-  if (status === 'denied') {
-    return '기기 설정에서 알림 권한을 허용해 주세요.';
-  }
-
-  if (status === 'error') {
-    return '알림 설정을 저장하지 못했어요. 다시 시도해 주세요.';
-  }
-
-  if (status === 'initializing' || status === 'updating') {
-    return '알림 설정을 확인하고 있어요.';
-  }
-
-  return '공지와 리마인드 알림을 놓치지 마세요.';
-}
