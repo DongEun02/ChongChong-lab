@@ -1116,7 +1116,6 @@ function App() {
   if (!isStudyOpen) {
     return (
       <StudyList
-        displayName={displayName}
         onCreateStudy={openCreateStudy}
         onOpenProfile={() => postToNative({ type: 'open-profile' })}
         onJoinStudy={openJoinStudy}
@@ -1194,7 +1193,6 @@ function App() {
 }
 
 type StudyListProps = {
-  displayName: string
   onCreateStudy: () => void
   onJoinStudy: () => void
   onOpenProfile: () => void
@@ -1204,7 +1202,6 @@ type StudyListProps = {
 }
 
 function StudyList({
-  displayName,
   onCreateStudy,
   onJoinStudy,
   onOpenProfile,
@@ -1275,7 +1272,6 @@ function StudyList({
             <small>정해둔 시각에 미확인자, 미제출자에게 알림을 보내요</small>
           </span>
         </aside>
-        <p className="signed-in-copy">{displayName}님 계정으로 로그인했어요.</p>
       </section>
     </main>
   )

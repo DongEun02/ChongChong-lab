@@ -20,6 +20,7 @@ import {
   signOutFromGoogle,
 } from './src/features/auth/googleAuth';
 import { LoginScreen } from './src/features/auth/LoginScreen';
+import { updateDisplayName } from './src/features/auth/profileData';
 import { SplashScreen } from './src/features/auth/SplashScreen';
 import type { AuthProvider } from './src/features/auth/types';
 import { useAuthSession } from './src/features/auth/useAuthSession';
@@ -160,6 +161,7 @@ function AppContent() {
               onDeleteAccount={handleDeleteAccount}
               onClose={() => setIsProfileVisible(false)}
               onSignOut={handleSignOut}
+              onUpdateDisplayName={updateDisplayName}
               pushNotifications={pushNotifications}
               user={user}
             />

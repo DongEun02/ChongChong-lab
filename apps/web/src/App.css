@@ -206,16 +206,10 @@ button {
   line-height: 20px;
 }
 
-.reminder-card small,
-.signed-in-copy {
+.reminder-card small {
   color: rgba(15, 23, 42, 0.55);
   font-size: 12px;
   line-height: 18px;
-}
-
-.signed-in-copy {
-  margin: 0;
-  text-align: center;
 }
 
 .study-header {
