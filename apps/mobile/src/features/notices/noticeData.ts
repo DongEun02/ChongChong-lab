@@ -23,6 +23,7 @@ export type NoticePayload = {
     read: boolean;
   }[];
   publishedAt: string;
+  readAt?: string;
   readCount: number;
   reminderAtLabel: string;
   reminderAts: string[];
@@ -48,6 +49,7 @@ type NoticeRecord = {
   id: string;
   lastReminderAtByUserId: Record<string, Date>;
   publishedAt: Date;
+  readAtByUserId: Record<string, Date>;
   readByUserIds: string[];
   reminderAt?: Date;
   reminderAts: Date[];
@@ -194,6 +196,7 @@ function createNoticePayload(
     isReadByCurrentUser: readers.has(currentUserId),
     members: memberPayload,
     publishedAt: notice.publishedAt.toISOString(),
+    readAt: notice.readAtByUserId[currentUserId]?.toISOString(),
     readCount,
     reminderAtLabel: formatReminderAt(notice.reminderAt),
     reminderAts: notice.reminderAts.map((date) => date.toISOString()),
@@ -232,6 +235,15 @@ function parseNoticeRecord(
       return date ? [[userId, date]] : [];
     }),
   );
+  const rawReadTimes = isRecord(data.readAtByUserId)
+    ? data.readAtByUserId
+    : {};
+  const readAtByUserId = Object.fromEntries(
+    Object.entries(rawReadTimes).flatMap(([userId, value]) => {
+      const date = toDate(value);
+      return date ? [[userId, date]] : [];
+    }),
+  );
   const reminderAt = toDate(data.reminderAt) ?? undefined;
   const reminderAts = Array.isArray(data.reminderAts)
     ? data.reminderAts.flatMap((value) => {
@@ -249,6 +261,7 @@ function parseNoticeRecord(
     id,
     lastReminderAtByUserId,
     publishedAt,
+    readAtByUserId,
     readByUserIds: rawReaders,
     reminderAt,
     reminderAts,

@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { StatusBar } from 'expo-status-bar';
 import {
   ActivityIndicator,
@@ -59,37 +60,63 @@ export function LoginScreen({
       </View>
 
       <View style={styles.footer}>
-        <Pressable
-          accessibilityHint={`${content.label} 로그인을 시작합니다`}
-          accessibilityRole="button"
-          accessibilityState={{ busy: isLoading, disabled: isLoading }}
-          disabled={isLoading}
-          onPress={() => onContinue(provider)}
-          style={({ pressed }) => [
-            styles.loginButton,
-            isApple ? styles.appleButton : styles.googleButton,
-            pressed && styles.pressedButton,
-            isLoading && styles.disabledButton,
-          ]}
-        >
-          {isLoading ? (
-            <ActivityIndicator color={isApple ? '#FFFFFF' : '#111111'} />
-          ) : isApple ? (
-            <Text style={styles.appleIcon} accessibilityElementsHidden>
-              
-            </Text>
-          ) : (
-            <Image
-              accessibilityIgnoresInvertColors
-              contentFit="contain"
-              source={require('../../../assets/auth/google.svg')}
-              style={styles.socialIcon}
+        {isApple ? (
+          <View
+            accessibilityState={{ busy: isLoading, disabled: isLoading }}
+            pointerEvents={isLoading ? 'none' : 'auto'}
+            style={[
+              styles.appleButtonContainer,
+              isLoading && styles.disabledButton,
+            ]}
+          >
+            <AppleAuthentication.AppleAuthenticationButton
+              accessibilityHint="Apple로 계속하기 로그인을 시작합니다"
+              buttonStyle={
+                AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+              }
+              buttonType={
+                AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
+              }
+              cornerRadius={12}
+              onPress={() => onContinue(provider)}
+              style={styles.appleNativeButton}
             />
-          )}
-          <Text style={[styles.loginLabel, isApple && styles.appleLabel]}>
-            {isLoading ? '로그인 중...' : content.label}
-          </Text>
-        </Pressable>
+            {isLoading ? (
+              <View pointerEvents="none" style={styles.appleLoadingOverlay}>
+                <ActivityIndicator color="#FFFFFF" />
+                <Text style={styles.appleLoadingLabel}>로그인 중...</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : (
+          <Pressable
+            accessibilityHint={`${content.label} 로그인을 시작합니다`}
+            accessibilityRole="button"
+            accessibilityState={{ busy: isLoading, disabled: isLoading }}
+            disabled={isLoading}
+            onPress={() => onContinue(provider)}
+            style={({ pressed }) => [
+              styles.loginButton,
+              styles.googleButton,
+              pressed && styles.pressedButton,
+              isLoading && styles.disabledButton,
+            ]}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#111111" />
+            ) : (
+              <Image
+                accessibilityIgnoresInvertColors
+                contentFit="contain"
+                source={require('../../../assets/auth/google.svg')}
+                style={styles.socialIcon}
+              />
+            )}
+            <Text style={styles.loginLabel}>
+              {isLoading ? '로그인 중...' : content.label}
+            </Text>
+          </Pressable>
+        )}
 
         {errorMessage ? (
           <Text accessibilityLiveRegion="polite" style={styles.errorMessage}>
@@ -166,8 +193,32 @@ const styles = StyleSheet.create({
     gap: 8,
     borderRadius: 12,
   },
-  appleButton: {
+  appleButtonContainer: {
+    height: 56,
+  },
+  appleNativeButton: {
+    width: '100%',
+    height: 56,
+  },
+  appleLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
     backgroundColor: '#000000',
+  },
+  appleLoadingLabel: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '400',
+    letterSpacing: -0.4,
+    lineHeight: 24,
   },
   googleButton: {
     borderWidth: 1,
@@ -184,20 +235,12 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
   },
-  appleIcon: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    lineHeight: 24,
-  },
   loginLabel: {
     color: '#111111',
     fontSize: 16,
     fontWeight: '400',
     letterSpacing: -0.4,
     lineHeight: 24,
-  },
-  appleLabel: {
-    color: '#FFFFFF',
   },
   errorMessage: {
     marginTop: 12,

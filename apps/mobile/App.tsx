@@ -9,11 +9,18 @@ import {
 import { AuthenticatedScreen } from './src/features/auth/AuthenticatedScreen';
 import { deleteAccount, getAccountErrorMessage } from './src/features/auth/accountData';
 import {
+  getAppleAuthErrorMessage,
+  revokeAppleAuthorization,
+  signInWithApple,
+  signOutFromApple,
+} from './src/features/auth/appleAuth';
+import {
   getGoogleAuthErrorMessage,
   signInWithGoogle,
   signOutFromGoogle,
 } from './src/features/auth/googleAuth';
 import { LoginScreen } from './src/features/auth/LoginScreen';
+import { updateDisplayName } from './src/features/auth/profileData';
 import { SplashScreen } from './src/features/auth/SplashScreen';
 import type { AuthProvider } from './src/features/auth/types';
 import { useAuthSession } from './src/features/auth/useAuthSession';
@@ -51,7 +58,6 @@ function AppContent() {
 
   useEffect(() => {
     if (
-      Platform.OS !== 'android' ||
       !shouldEnablePushAfterSignIn ||
       !user ||
       pushNotifications.isBusy
@@ -78,19 +84,22 @@ function AppContent() {
   ]);
 
   const handleContinue = async (provider: AuthProvider) => {
-    if (provider === 'apple') {
-      showAlert('Apple 로그인', 'iOS Firebase 설정과 함께 연결할게요.');
-      return;
-    }
-
     setIsSigningIn(true);
     setLoginError(undefined);
 
     try {
-      await signInWithGoogle();
+      if (provider === 'apple') {
+        await signInWithApple();
+      } else {
+        await signInWithGoogle();
+      }
       setShouldEnablePushAfterSignIn(true);
     } catch (error) {
-      setLoginError(getGoogleAuthErrorMessage(error));
+      setLoginError(
+        provider === 'apple'
+          ? getAppleAuthErrorMessage(error)
+          : getGoogleAuthErrorMessage(error),
+      );
     } finally {
       setIsSigningIn(false);
     }
@@ -98,7 +107,11 @@ function AppContent() {
 
   const handleSignOut = async () => {
     try {
-      await signOutFromGoogle();
+      if (user?.providerData.some(({ providerId }) => providerId === 'apple.com')) {
+        await signOutFromApple();
+      } else {
+        await signOutFromGoogle();
+      }
       setShouldEnablePushAfterSignIn(false);
       setIsProfileVisible(false);
     } catch (error) {
@@ -108,8 +121,18 @@ function AppContent() {
 
   const handleDeleteAccount = async () => {
     try {
+      const isAppleUser = user?.providerData.some(
+        ({ providerId }) => providerId === 'apple.com',
+      );
+      if (isAppleUser) {
+        await revokeAppleAuthorization();
+      }
       await deleteAccount();
-      await signOutFromGoogle();
+      if (isAppleUser) {
+        await signOutFromApple();
+      } else {
+        await signOutFromGoogle();
+      }
       setIsProfileVisible(false);
     } catch (error) {
       throw new Error(getAccountErrorMessage(error));
@@ -138,6 +161,7 @@ function AppContent() {
               onDeleteAccount={handleDeleteAccount}
               onClose={() => setIsProfileVisible(false)}
               onSignOut={handleSignOut}
+              onUpdateDisplayName={updateDisplayName}
               pushNotifications={pushNotifications}
               user={user}
             />
