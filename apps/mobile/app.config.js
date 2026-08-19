@@ -7,8 +7,11 @@ module.exports = ({ config }) => {
     ...config,
     plugins: [
       ...(config.plugins ?? []).filter(
-        (plugin) => plugin !== 'expo-build-properties',
+        (plugin) =>
+          plugin !== 'expo-build-properties' &&
+          plugin !== './plugins/with-rn-firebase-cocoapods',
       ),
+      './plugins/with-rn-firebase-cocoapods',
       [
         'expo-build-properties',
         {
