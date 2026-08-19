@@ -22,6 +22,7 @@ export type NoticeDetail = NoticeSummary & {
   members: NoticeMember[]
   reminderAtLabel: string
   reminderAts: string[]
+  readAt?: Date
 }
 
 const FIVE_HOURS = 5 * 60 * 60 * 1000
@@ -80,6 +81,7 @@ export const NOTICE_DETAILS: NoticeDetail[] = NOTICE_SUMMARIES.map((notice) => (
   })),
   reminderAtLabel: '1분 뒤 리마인드 · 8월 5일 21:00',
   reminderAts: [new Date(Date.now() + FIVE_HOURS).toISOString()],
+  readAt: notice.isReadByCurrentUser ? new Date() : undefined,
 }))
 
 export function getNoticeDetail(noticeId: string) {
@@ -106,6 +108,7 @@ function parseNoticePayload(value: unknown): NoticeDetail | null {
     return null
   }
   const publishedAt = new Date(String(value.publishedAt))
+  const readAt = value.readAt === undefined ? undefined : new Date(String(value.readAt))
   const members = value.members.map(parseNoticeMember)
   const reminderAts = value.reminderAts.filter(isString)
   if (
@@ -117,6 +120,7 @@ function parseNoticePayload(value: unknown): NoticeDetail | null {
     !isString(value.reminderAtLabel) ||
     !isString(value.title) ||
     !Number.isFinite(publishedAt.getTime()) ||
+    (readAt !== undefined && !Number.isFinite(readAt.getTime())) ||
     !members.every((member): member is NoticeMember => member !== null) ||
     reminderAts.length !== value.reminderAts.length
   ) {
@@ -131,6 +135,7 @@ function parseNoticePayload(value: unknown): NoticeDetail | null {
     isReadByCurrentUser: value.isReadByCurrentUser,
     members,
     publishedAt,
+    readAt,
     readCount: members.filter((member) => member.read).length,
     reminderAtLabel: value.reminderAtLabel,
     reminderAts,

@@ -35,6 +35,7 @@ export function NoticeDetailPage({
 }: NoticeDetailPageProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [hasRequestedDelete, setHasRequestedDelete] = useState(false)
+  const [readProgress, setReadProgress] = useState(0)
   const hasRequestedRead = useRef(false)
   const readMarkerRef = useRef<HTMLDivElement>(null)
   const readMembers = notice.members.filter((member) => member.read)
@@ -44,6 +45,26 @@ export function NoticeDetailPage({
   useEffect(() => {
     hasRequestedRead.current = false
   }, [notice.id])
+
+  useEffect(() => {
+    if (role !== 'member' || notice.isReadByCurrentUser) return
+
+    const updateProgress = () => {
+      const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight
+      const nextProgress = scrollableHeight <= 0
+        ? 100
+        : Math.round((window.scrollY / scrollableHeight) * 100)
+      setReadProgress(Math.max(0, Math.min(100, nextProgress)))
+    }
+
+    updateProgress()
+    window.addEventListener('scroll', updateProgress, { passive: true })
+    window.addEventListener('resize', updateProgress)
+    return () => {
+      window.removeEventListener('scroll', updateProgress)
+      window.removeEventListener('resize', updateProgress)
+    }
+  }, [notice.id, notice.isReadByCurrentUser, role])
 
   useEffect(() => {
     const marker = readMarkerRef.current
@@ -99,7 +120,9 @@ export function NoticeDetailPage({
         <strong>공지</strong>
       </header>
 
-      <div className={`notice-detail-content ${role === 'member' ? 'is-member' : ''}`}>
+      <div
+        className={`notice-detail-content ${role === 'member' ? `is-member ${notice.isReadByCurrentUser ? 'is-read' : ''}` : ''}`}
+      >
         {role === 'leader' ? (
           <section aria-labelledby="read-dashboard-title" className="read-dashboard">
           <div className="read-dashboard-heading">
@@ -197,6 +220,26 @@ export function NoticeDetailPage({
         ) : null}
       </div>
 
+      {role === 'member' ? (
+        notice.isReadByCurrentUser ? (
+          <footer className="notice-read-complete-footer">
+            <div className="notice-read-complete-banner">
+              <img alt="" src={readCheckIcon} />
+              읽음으로 표시했어요
+            </div>
+            <div className="notice-read-complete-time">
+              <img alt="" src={readCheckIcon} />
+              {formatReadAt(notice.readAt)}
+            </div>
+          </footer>
+        ) : (
+          <footer className="notice-reading-footer">
+            <strong>끝까지 읽으면 읽음으로 표시돼요</strong>
+            <small>지금 {readProgress}% 읽었어요</small>
+          </footer>
+        )
+      ) : null}
+
       {isDeleteDialogOpen ? (
         <div className="notice-delete-overlay">
           <section
@@ -239,4 +282,10 @@ export function NoticeDetailPage({
       ) : null}
     </main>
   )
+}
+
+function formatReadAt(readAt?: Date) {
+  if (!readAt) return '읽음'
+
+  return `${readAt.getMonth() + 1}월 ${readAt.getDate()}일 ${String(readAt.getHours()).padStart(2, '0')}:${String(readAt.getMinutes()).padStart(2, '0')}에 읽음`
 }
