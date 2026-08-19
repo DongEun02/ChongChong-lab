@@ -6,6 +6,13 @@ import {
   serverTimestamp,
   setDoc,
 } from '@react-native-firebase/firestore';
+import {
+  deleteToken,
+  getMessaging,
+  getToken,
+  registerDeviceForRemoteMessages,
+  unregisterDeviceForRemoteMessages,
+} from '@react-native-firebase/messaging';
 import * as Crypto from 'expo-crypto';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
@@ -23,19 +30,18 @@ export type PushSyncResult = 'disabled' | 'enabled' | 'denied';
 export async function enablePushNotifications(
   userId: string,
 ): Promise<Exclude<PushSyncResult, 'disabled'>> {
-  assertAndroid();
   await ensureNotificationChannel();
 
   const currentPermission = await Notifications.getPermissionsAsync();
-  const permission = currentPermission.granted
+  const permission = hasNotificationPermission(currentPermission)
     ? currentPermission
     : await Notifications.requestPermissionsAsync();
 
-  if (!permission.granted) {
+  if (!hasNotificationPermission(permission)) {
     return 'denied';
   }
 
-  const token = await Notifications.getDevicePushTokenAsync();
+  const token = await getFcmToken();
   await persistPushToken(userId, token);
 
   return 'enabled';
@@ -44,10 +50,6 @@ export async function enablePushNotifications(
 export async function syncPushNotifications(
   userId: string,
 ): Promise<PushSyncResult> {
-  if (Platform.OS !== 'android') {
-    return 'disabled';
-  }
-
   const preferences = await readPreferences(userId);
   if (!preferences?.enabled) {
     return 'disabled';
@@ -56,43 +58,41 @@ export async function syncPushNotifications(
   await ensureNotificationChannel();
   const permission = await Notifications.getPermissionsAsync();
 
-  if (!permission.granted) {
+  if (!hasNotificationPermission(permission)) {
     await removeStoredToken(userId, preferences.tokenDocumentId);
     await AsyncStorage.removeItem(getStorageKey(userId));
     return 'denied';
   }
 
-  const token = await Notifications.getDevicePushTokenAsync();
+  const token = await getFcmToken();
   await persistPushToken(userId, token);
 
   return 'enabled';
 }
 
 export async function disablePushNotifications(userId: string): Promise<void> {
-  if (Platform.OS !== 'android') {
-    return;
-  }
-
   const preferences = await readPreferences(userId);
   if (preferences) {
     await removeStoredToken(userId, preferences.tokenDocumentId);
   }
 
-  await Notifications.unregisterForNotificationsAsync();
+  const messaging = getMessaging();
+  await deleteToken(messaging);
+
+  if (Platform.OS === 'ios') {
+    await unregisterDeviceForRemoteMessages(messaging);
+  }
+
   await AsyncStorage.removeItem(getStorageKey(userId));
 }
 
 export async function persistPushToken(
   userId: string,
-  token: Notifications.DevicePushToken,
+  token: string,
 ): Promise<void> {
-  if (Platform.OS !== 'android' || typeof token.data !== 'string') {
-    return;
-  }
-
   const tokenDocumentId = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
-    token.data,
+    token,
   );
   const previousPreferences = await readPreferences(userId);
   const tokenReference = doc(
@@ -107,9 +107,9 @@ export async function persistPushToken(
     tokenReference,
     {
       enabled: true,
-      platform: 'android',
+      platform: Platform.OS,
       provider: 'fcm',
-      token: token.data,
+      token,
       updatedAt: serverTimestamp(),
     },
     { merge: true },
@@ -129,6 +129,10 @@ export async function persistPushToken(
 }
 
 async function ensureNotificationChannel(): Promise<void> {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+
   await Notifications.setNotificationChannelAsync(GENERAL_CHANNEL_ID, {
     name: '공지 및 리마인드',
     description: '스터디 공지와 마감 리마인드를 알려드려요.',
@@ -136,6 +140,27 @@ async function ensureNotificationChannel(): Promise<void> {
     lightColor: '#00C471',
     vibrationPattern: [0, 250, 250, 250],
   });
+}
+
+async function getFcmToken(): Promise<string> {
+  const messaging = getMessaging();
+  await registerDeviceForRemoteMessages(messaging);
+  return getToken(messaging);
+}
+
+function hasNotificationPermission(
+  permission: Notifications.NotificationPermissionsStatus,
+): boolean {
+  if (Platform.OS !== 'ios') {
+    return permission.granted;
+  }
+
+  const iosStatus = permission.ios?.status;
+  return (
+    iosStatus === Notifications.IosAuthorizationStatus.AUTHORIZED ||
+    iosStatus === Notifications.IosAuthorizationStatus.PROVISIONAL ||
+    iosStatus === Notifications.IosAuthorizationStatus.EPHEMERAL
+  );
 }
 
 async function removeStoredToken(
@@ -184,10 +209,4 @@ function isStoredPushPreferences(
 
 function getStorageKey(userId: string) {
   return `${STORAGE_KEY_PREFIX}${userId}`;
-}
-
-function assertAndroid() {
-  if (Platform.OS !== 'android') {
-    throw new Error('Android 푸시 알림만 지원하는 단계예요.');
-  }
 }
