@@ -1,4 +1,7 @@
-import * as Notifications from 'expo-notifications';
+import {
+  getMessaging,
+  onTokenRefresh,
+} from '@react-native-firebase/messaging';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
@@ -56,7 +59,7 @@ export function usePushNotifications(
         }
       });
 
-    const tokenSubscription = Notifications.addPushTokenListener((token) => {
+    const unsubscribeTokenRefresh = onTokenRefresh(getMessaging(), (token) => {
       if (isEnabledRef.current) {
         void persistPushToken(userId, token).catch(() => {
           if (isActive) {
@@ -68,7 +71,7 @@ export function usePushNotifications(
 
     return () => {
       isActive = false;
-      tokenSubscription.remove();
+      unsubscribeTokenRefresh();
     };
   }, [userId]);
 

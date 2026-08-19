@@ -59,10 +59,10 @@ pnpm dlx eas-cli credentials --platform android
 
 로컬 Android 빌드에는 JDK 17과 Android SDK가 필요합니다.
 
-## Android 푸시 알림
+## Android/iOS 푸시 알림
 
 - 알림 수신 동의는 로그인 직후가 아니라 사용자가 **푸시 알림** 스위치를 켤 때 요청합니다.
-- Expo Go에서는 Android 원격 알림을 테스트할 수 없으므로 development build 또는 설치된 APK/AAB를 사용합니다.
+- 원격 알림은 development build 또는 스토어용 빌드를 설치한 실제 기기에서 확인합니다.
 - 앱은 Expo Push Token이 아닌 Firebase의 네이티브 FCM 토큰을 등록합니다.
 - 토큰은 Firestore의 `users/{uid}/pushTokens/{tokenHash}`에 저장되고, 로그아웃 후 다시 로그인해도 사용자별 설정을 복원합니다.
 - 토큰 원문은 문서 ID로 사용하지 않고 SHA-256 해시를 문서 ID로 사용합니다.

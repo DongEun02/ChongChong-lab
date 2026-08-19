@@ -81,7 +81,7 @@ service cloud.firestore {
           'updatedAt'
         ])
         && request.resource.data.enabled == true
-        && request.resource.data.platform == 'android'
+        && request.resource.data.platform in ['android', 'ios']
         && request.resource.data.provider == 'fcm'
         && request.resource.data.token is string
         && request.resource.data.token.size() <= 4096
