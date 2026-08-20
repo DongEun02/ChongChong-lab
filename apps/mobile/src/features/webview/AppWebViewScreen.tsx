@@ -4,7 +4,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   BackHandler,
+  Dimensions,
   Linking,
   PanResponder,
   Platform,
@@ -363,6 +365,7 @@ export function AppWebViewScreen({
   const latestNotificationsRef = useRef<NotificationPayload[] | undefined>(
     undefined,
   );
+  const handledBackSwipeRequestCountRef = useRef(0);
   const deletingStudyIdRef = useRef<string | undefined>(undefined);
   const pendingStudyIdRef = useRef<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<AppTab>('home');
@@ -371,6 +374,7 @@ export function AppWebViewScreen({
   const [selectedStudyId, setSelectedStudyId] = useState<string>();
   const [reloadKey, setReloadKey] = useState(0);
   const [backSwipeRequestCount, setBackSwipeRequestCount] = useState(0);
+  const [backSwipeTranslateX] = useState(() => new Animated.Value(0));
   const injectedSession = useMemo(() => {
     const session = JSON.stringify({ displayName }).replaceAll(
       '<',
@@ -417,6 +421,12 @@ export function AppWebViewScreen({
   const edgeSwipeBackResponder = useMemo(
     () =>
       PanResponder.create({
+        onPanResponderGrant: () => {
+          backSwipeTranslateX.stopAnimation();
+        },
+        onPanResponderMove: (_, gestureState) => {
+          backSwipeTranslateX.setValue(Math.max(0, gestureState.dx));
+        },
         onMoveShouldSetPanResponderCapture: (_, gestureState) =>
           Platform.OS === 'ios' &&
           canNavigateBack &&
@@ -431,22 +441,54 @@ export function AppWebViewScreen({
             gestureState.vx >= IOS_BACK_SWIPE_COMPLETION_VELOCITY;
 
           if (movedFarEnough || flickedFastEnough) {
-            setBackSwipeRequestCount((current) => current + 1);
+            Animated.timing(backSwipeTranslateX, {
+              duration: 180,
+              toValue: Dimensions.get('window').width,
+              useNativeDriver: true,
+            }).start(({ finished }) => {
+              if (finished) {
+                setBackSwipeRequestCount((current) => current + 1);
+              }
+            });
+            return;
           }
+
+          Animated.spring(backSwipeTranslateX, {
+            damping: 24,
+            mass: 0.8,
+            stiffness: 260,
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(backSwipeTranslateX, {
+            damping: 24,
+            mass: 0.8,
+            stiffness: 260,
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
         },
       }),
-    [canNavigateBack],
+    [backSwipeTranslateX, canNavigateBack],
   );
 
   useEffect(() => {
-    if (backSwipeRequestCount === 0) {
+    if (
+      backSwipeRequestCount === handledBackSwipeRequestCountRef.current
+    ) {
       return;
     }
 
-    const frame = requestAnimationFrame(navigateBack);
+    handledBackSwipeRequestCountRef.current = backSwipeRequestCount;
+    const frame = requestAnimationFrame(() => {
+      navigateBack();
+      requestAnimationFrame(() => backSwipeTranslateX.setValue(0));
+    });
 
     return () => cancelAnimationFrame(frame);
-  }, [backSwipeRequestCount, navigateBack]);
+  }, [backSwipeRequestCount, backSwipeTranslateX, navigateBack]);
 
   useEffect(() => {
     return subscribeToUserStudies(
@@ -1195,9 +1237,12 @@ export function AppWebViewScreen({
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <StatusBar style="dark" />
-      <View
+      <Animated.View
         {...edgeSwipeBackResponder.panHandlers}
-        style={styles.gestureContainer}
+        style={[
+          styles.gestureContainer,
+          { transform: [{ translateX: backSwipeTranslateX }] },
+        ]}
       >
         <WebView
           androidLayerType="software"
@@ -1240,7 +1285,7 @@ export function AppWebViewScreen({
         ) : !isSubpageOpen ? (
           <View style={styles.tabPlaceholder} />
         ) : null}
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
