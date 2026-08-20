@@ -20,6 +20,7 @@ import { PRIVACY_POLICY_URL, SUPPORT_EMAIL_URL } from '../legal/legalLinks';
 import type { UsePushNotificationsResult } from '../notifications/usePushNotifications';
 
 type AuthenticatedScreenProps = {
+  currentDisplayName?: string | null;
   user: User;
   onClose?: () => void;
   onDeleteAccount: () => Promise<void>;
@@ -31,6 +32,7 @@ type AuthenticatedScreenProps = {
 const MAX_DISPLAY_NAME_LENGTH = 8;
 
 export function AuthenticatedScreen({
+  currentDisplayName,
   user,
   onClose,
   onDeleteAccount,
@@ -38,7 +40,10 @@ export function AuthenticatedScreen({
   onUpdateDisplayName,
   pushNotifications,
 }: AuthenticatedScreenProps) {
-  const initialDisplayName = useMemo(() => getDisplayName(user), [user]);
+  const initialDisplayName = useMemo(
+    () => currentDisplayName?.trim() || getDisplayName(user),
+    [currentDisplayName, user],
+  );
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [savedDisplayName, setSavedDisplayName] = useState(initialDisplayName);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -60,6 +65,10 @@ export function AuthenticatedScreen({
       const nextDisplayName = await onUpdateDisplayName(normalizedDisplayName);
       setDisplayName(nextDisplayName);
       setSavedDisplayName(nextDisplayName);
+      showAlert(
+        '프로필을 수정했어요',
+        `${nextDisplayName} 이름으로 표시돼요.`,
+      );
     } catch (error) {
       showAlert(
         '프로필을 수정하지 못했어요',

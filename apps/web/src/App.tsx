@@ -68,6 +68,7 @@ type StudySummary = {
   unreadNotices: number
 }
 type NativeMessage =
+  | { type: 'web-ready' }
   | { type: 'close-notifications' }
   | { type: 'close-assignment' }
   | { type: 'close-create-assignment' }
@@ -590,6 +591,8 @@ function App() {
       }
     }
     window.addEventListener('chongchong:notifications', handleNotifications)
+
+    postToNative({ type: 'web-ready' })
 
     return () => {
       window.removeEventListener('chongchong:navigate', handleNavigation)

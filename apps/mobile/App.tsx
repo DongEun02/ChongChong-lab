@@ -46,6 +46,10 @@ function AppContent() {
   const [shouldEnablePushAfterSignIn, setShouldEnablePushAfterSignIn] =
     useState(false);
   const [loginError, setLoginError] = useState<string>();
+  const [profileOverride, setProfileOverride] = useState<{
+    displayName: string;
+    uid: string;
+  }>();
   const { isInitializing, user } = useAuthSession();
   const pushNotifications = usePushNotifications(user?.uid);
   const { showAlert } = useAlertModal();
@@ -113,6 +117,7 @@ function AppContent() {
         await signOutFromGoogle();
       }
       setShouldEnablePushAfterSignIn(false);
+      setProfileOverride(undefined);
       setIsProfileVisible(false);
     } catch (error) {
       showAlert('로그아웃 실패', getGoogleAuthErrorMessage(error));
@@ -139,7 +144,21 @@ function AppContent() {
     }
   };
 
+  const handleUpdateDisplayName = async (displayName: string) => {
+    const nextDisplayName = await updateDisplayName(displayName);
+
+    if (user) {
+      setProfileOverride({ displayName: nextDisplayName, uid: user.uid });
+    }
+
+    return nextDisplayName;
+  };
+
   const shouldShowSplash = isSplashVisible || isInitializing;
+  const currentDisplayName =
+    profileOverride && profileOverride.uid === user?.uid
+      ? profileOverride.displayName
+      : user?.displayName;
 
   return (
     <>
@@ -148,6 +167,7 @@ function AppContent() {
       ) : user ? (
         <>
           <AppWebViewScreen
+            displayName={currentDisplayName}
             onOpenProfile={() => setIsProfileVisible(true)}
             user={user}
           />
@@ -157,14 +177,18 @@ function AppContent() {
             presentationStyle="fullScreen"
             visible={isProfileVisible}
           >
-            <AuthenticatedScreen
-              onDeleteAccount={handleDeleteAccount}
-              onClose={() => setIsProfileVisible(false)}
-              onSignOut={handleSignOut}
-              onUpdateDisplayName={updateDisplayName}
-              pushNotifications={pushNotifications}
-              user={user}
-            />
+            <SafeAreaProvider>
+              <AuthenticatedScreen
+                currentDisplayName={currentDisplayName}
+                key={user.uid}
+                onDeleteAccount={handleDeleteAccount}
+                onClose={() => setIsProfileVisible(false)}
+                onSignOut={handleSignOut}
+                onUpdateDisplayName={handleUpdateDisplayName}
+                pushNotifications={pushNotifications}
+                user={user}
+              />
+            </SafeAreaProvider>
           </Modal>
         </>
       ) : (
