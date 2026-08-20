@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
+import { flushSync } from 'react-dom'
 
 import backIcon from '../../assets/figma/back.svg'
 import reminderPlusIcon from '../../assets/figma/reminder-plus.svg'
@@ -37,6 +38,7 @@ export function CreateAssignmentPage({ errorMessage, initialValue, isSubmitting,
       .map(toLocalDateTime)
     return futureReminders
   })
+  const reminderInputRefs = useRef<Array<HTMLInputElement | null>>([])
   const minimum = toLocalDateTime(new Date())
   const deadlineDate = new Date(deadline)
   const validDates = deadline !== '' && deadlineDate > new Date() && reminders.every((value) => {
@@ -59,6 +61,14 @@ export function CreateAssignmentPage({ errorMessage, initialValue, isSubmitting,
     })
   }
 
+  const addReminder = () => {
+    const nextIndex = reminders.length
+    flushSync(() => {
+      setReminders((current) => [...current, ''])
+    })
+    openDateTimePicker(reminderInputRefs.current[nextIndex])
+  }
+
   return (
     <main className="screen create-assignment-screen">
       <header className="assignment-subpage-header">
@@ -74,11 +84,11 @@ export function CreateAssignmentPage({ errorMessage, initialValue, isSubmitting,
           <legend>리마인드 시각 <small>(선택)</small></legend>
           {reminders.map((value, index) => (
             <label className="assignment-date-input" key={index}>
-              <input aria-label={`리마인드 시각 ${index + 1}`} max={deadline || undefined} min={minimum} onChange={(event) => setReminders((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} type="datetime-local" value={value} />
+              <input aria-label={`리마인드 시각 ${index + 1}`} max={deadline || undefined} min={minimum} onChange={(event) => setReminders((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} ref={(element) => { reminderInputRefs.current[index] = element }} type="datetime-local" value={value} />
               {reminders.length > 0 ? <button aria-label={`리마인드 ${index + 1} 삭제`} onClick={() => setReminders((current) => current.filter((_, itemIndex) => itemIndex !== index))} type="button"><img alt="" src={reminderRemoveIcon} /></button> : null}
             </label>
           ))}
-          {reminders.length < 5 ? <button aria-label="리마인드 추가" className="assignment-add-reminder" onClick={() => setReminders((current) => [...current, ''])} type="button"><img alt="" src={reminderPlusIcon} /></button> : null}
+          {reminders.length < 5 ? <button aria-label="리마인드 추가" className="assignment-add-reminder" onClick={addReminder} type="button"><img alt="" src={reminderPlusIcon} /></button> : null}
           <small>설정한 시각마다 제출하지 않은 스터디원에게 알림을 보내드릴게요</small>
         </fieldset>
         {errorMessage ? <p className="assignment-form-error">{errorMessage}</p> : null}
@@ -98,4 +108,14 @@ function Field({ children, label, required }: { children: React.ReactNode; label
 
 function toLocalDateTime(date: Date) {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+}
+
+function openDateTimePicker(input: HTMLInputElement | null) {
+  if (!input) return
+  input.focus()
+  try {
+    input.showPicker()
+  } catch {
+    input.click()
+  }
 }

@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
+import { flushSync } from 'react-dom'
 
 import backIcon from '../../assets/figma/back.svg'
 import reminderPlusIcon from '../../assets/figma/reminder-plus.svg'
@@ -40,6 +41,7 @@ export function CreateNoticePage({
       .map((value) => toLocalDateTime(new Date(value)))
     return futureReminders
   })
+  const reminderInputRefs = useRef<Array<HTMLInputElement | null>>([])
   const [minimumReminderValue] = useState(() => toLocalDateTime(new Date()))
   const areRemindersValid = reminderValues.every((value) => {
     const date = new Date(value)
@@ -72,6 +74,14 @@ export function CreateNoticePage({
         candidateIndex === index ? value : candidate,
       ),
     )
+  }
+
+  const addReminder = () => {
+    const nextIndex = reminderValues.length
+    flushSync(() => {
+      setReminderValues((current) => [...current, ''])
+    })
+    openDateTimePicker(reminderInputRefs.current[nextIndex])
   }
 
   return (
@@ -124,6 +134,9 @@ export function CreateNoticePage({
                 disabled={isSubmitting}
                 min={minimumReminderValue}
                 onChange={(event) => updateReminder(index, event.target.value)}
+                ref={(element) => {
+                  reminderInputRefs.current[index] = element
+                }}
                 type="datetime-local"
                 value={value}
               />
@@ -148,7 +161,7 @@ export function CreateNoticePage({
               aria-label="리마인드 시각 추가"
               className="add-reminder-button"
               disabled={isSubmitting}
-              onClick={() => setReminderValues((current) => [...current, ''])}
+              onClick={addReminder}
               type="button"
             >
               <img alt="" src={reminderPlusIcon} />
@@ -172,4 +185,17 @@ export function CreateNoticePage({
 function toLocalDateTime(date: Date) {
   const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
   return offsetDate.toISOString().slice(0, 16)
+}
+
+function openDateTimePicker(input: HTMLInputElement | null) {
+  if (!input) {
+    return
+  }
+
+  input.focus()
+  try {
+    input.showPicker()
+  } catch {
+    input.click()
+  }
 }
