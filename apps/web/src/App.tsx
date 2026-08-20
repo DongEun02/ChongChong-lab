@@ -616,6 +616,18 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!window.ReactNativeWebView || studyDataStatus !== 'loading') {
+      return
+    }
+
+    const retryIds = [250, 1000, 3000].map((delay) =>
+      window.setTimeout(() => postToNative({ type: 'web-ready' }), delay),
+    )
+
+    return () => retryIds.forEach((retryId) => window.clearTimeout(retryId))
+  }, [studyDataStatus])
+
   const openStudy = (study: StudySummary) => {
     setSelectedStudy(study)
     setIsStudyOpen(true)

@@ -351,6 +351,9 @@ export function AppWebViewScreen({
   );
   const latestNoticesRef = useRef<NoticePayload[] | undefined>(undefined);
   const latestStudiesRef = useRef<StudyListPayload[] | undefined>(undefined);
+  const latestStudiesStatusRef = useRef<'error' | 'loading' | 'ready'>(
+    'loading',
+  );
   const latestMembersRef = useRef<StudyMemberPayload[] | undefined>(undefined);
   const latestNotificationsRef = useRef<NotificationPayload[] | undefined>(
     undefined,
@@ -381,6 +384,7 @@ export function AppWebViewScreen({
     return subscribeToUserStudies(
       user.uid,
       (studies) => {
+        latestStudiesStatusRef.current = 'ready';
         latestStudiesRef.current = studies;
         const hasSelectedStudy = studies.some(
           (study) => study.id === selectedStudyId,
@@ -416,6 +420,7 @@ export function AppWebViewScreen({
         );
       },
       (error) => {
+        latestStudiesStatusRef.current = 'error';
         console.warn('Study subscription error', error);
         webViewRef.current?.injectJavaScript(createStudyListScript('error'));
       },
@@ -546,7 +551,12 @@ export function AppWebViewScreen({
         createAssignmentDataScript('ready', latestAssignmentsRef.current),
       );
     }
-    if (latestStudiesRef.current) {
+    if (latestStudiesStatusRef.current === 'error') {
+      webViewRef.current?.injectJavaScript(createStudyListScript('error'));
+    } else if (
+      latestStudiesStatusRef.current === 'ready' &&
+      latestStudiesRef.current
+    ) {
       webViewRef.current?.injectJavaScript(
         createStudyListScript('ready', latestStudiesRef.current),
       );
