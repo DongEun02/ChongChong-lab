@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   BackHandler,
   Linking,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -66,6 +67,10 @@ const DEV_WEB_APP_URL =
   Platform.OS === 'android' ? 'http://10.0.2.2:5173' : 'http://localhost:5173';
 const WEB_APP_URL = process.env.EXPO_PUBLIC_WEB_APP_URL ?? DEV_WEB_APP_URL;
 const WEB_APP_ORIGIN = new URL(WEB_APP_URL).origin;
+const IOS_BACK_SWIPE_EDGE_WIDTH = 28;
+const IOS_BACK_SWIPE_ACTIVATION_DISTANCE = 12;
+const IOS_BACK_SWIPE_COMPLETION_DISTANCE = 72;
+const IOS_BACK_SWIPE_COMPLETION_VELOCITY = 0.35;
 
 function isWebViewMessage(value: unknown): value is WebViewMessage {
   if (typeof value !== 'object' || value === null || !('type' in value)) {
@@ -365,6 +370,7 @@ export function AppWebViewScreen({
   const [isSubpageOpen, setIsSubpageOpen] = useState(false);
   const [selectedStudyId, setSelectedStudyId] = useState<string>();
   const [reloadKey, setReloadKey] = useState(0);
+  const [backSwipeRequestCount, setBackSwipeRequestCount] = useState(0);
   const injectedSession = useMemo(() => {
     const session = JSON.stringify({ displayName }).replaceAll(
       '<',
@@ -379,6 +385,68 @@ export function AppWebViewScreen({
     setIsSubpageOpen(false);
     webViewRef.current?.injectJavaScript(createNavigationScript(tab));
   }, []);
+
+  const navigateBack = useCallback(() => {
+    if (isSubpageOpen) {
+      setIsSubpageOpen(false);
+      webViewRef.current?.injectJavaScript(
+        "window.dispatchEvent(new CustomEvent('chongchong:close-subpage')); true;",
+      );
+      return true;
+    }
+
+    if (!isStudySelected) {
+      return false;
+    }
+
+    if (activeTab !== 'home') {
+      navigateToTab('home');
+      return true;
+    }
+
+    setIsStudySelected(false);
+    setSelectedStudyId(undefined);
+    setActiveTab('home');
+    webViewRef.current?.injectJavaScript(
+      "window.dispatchEvent(new CustomEvent('chongchong:exit-study')); true;",
+    );
+    return true;
+  }, [activeTab, isStudySelected, isSubpageOpen, navigateToTab]);
+
+  const canNavigateBack = isSubpageOpen || isStudySelected;
+  const edgeSwipeBackResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+          Platform.OS === 'ios' &&
+          canNavigateBack &&
+          gestureState.x0 <= IOS_BACK_SWIPE_EDGE_WIDTH &&
+          gestureState.dx >= IOS_BACK_SWIPE_ACTIVATION_DISTANCE &&
+          gestureState.dx > Math.abs(gestureState.dy) * 1.5,
+        onPanResponderRelease: (_, gestureState) => {
+          const movedFarEnough =
+            gestureState.dx >= IOS_BACK_SWIPE_COMPLETION_DISTANCE;
+          const flickedFastEnough =
+            gestureState.dx >= IOS_BACK_SWIPE_ACTIVATION_DISTANCE &&
+            gestureState.vx >= IOS_BACK_SWIPE_COMPLETION_VELOCITY;
+
+          if (movedFarEnough || flickedFastEnough) {
+            setBackSwipeRequestCount((current) => current + 1);
+          }
+        },
+      }),
+    [canNavigateBack],
+  );
+
+  useEffect(() => {
+    if (backSwipeRequestCount === 0) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(navigateBack);
+
+    return () => cancelAnimationFrame(frame);
+  }, [backSwipeRequestCount, navigateBack]);
 
   useEffect(() => {
     return subscribeToUserStudies(
@@ -513,29 +581,13 @@ export function AppWebViewScreen({
   }, [selectedStudyId]);
 
   useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (isSubpageOpen) {
-        setIsSubpageOpen(false);
-        webViewRef.current?.injectJavaScript(
-          "window.dispatchEvent(new CustomEvent('chongchong:close-subpage')); true;",
-        );
-        return true;
-      }
-
-      if (!isStudySelected) {
-        return false;
-      }
-
-      setIsStudySelected(false);
-      setActiveTab('home');
-      webViewRef.current?.injectJavaScript(
-        "window.dispatchEvent(new CustomEvent('chongchong:exit-study')); true;",
-      );
-      return true;
-    });
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      navigateBack,
+    );
 
     return () => subscription.remove();
-  }, [isStudySelected, isSubpageOpen]);
+  }, [navigateBack]);
 
   const syncLatestData = useCallback(() => {
     if (isStudySelected) {
@@ -1143,47 +1195,52 @@ export function AppWebViewScreen({
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <StatusBar style="dark" />
-      <WebView
-        androidLayerType="software"
-        cacheEnabled
-        injectedJavaScriptBeforeContentLoaded={injectedSession}
-        key={reloadKey}
-        onHttpError={(event) => {
-          console.warn('WebView HTTP error', event.nativeEvent.statusCode);
-        }}
-        onLoadEnd={syncLatestData}
-        onMessage={handleMessage}
-        onShouldStartLoadWithRequest={handleNavigationRequest}
-        originWhitelist={['http://*', 'https://*']}
-        ref={webViewRef}
-        renderError={() => (
-          <View style={styles.errorState}>
-            <Text style={styles.errorTitle}>화면을 불러오지 못했어요</Text>
-            <Text style={styles.errorDescription}>
-              웹 앱 실행 상태와 네트워크 연결을 확인해 주세요.
-            </Text>
-            <Pressable
-              onPress={() => setReloadKey((current) => current + 1)}
-              style={styles.retryButton}
-            >
-              <Text style={styles.retryLabel}>다시 시도</Text>
-            </Pressable>
-          </View>
-        )}
-        renderLoading={() => (
-          <View style={styles.loadingState}>
-            <ActivityIndicator color="#00C471" size="large" />
-          </View>
-        )}
-        source={{ uri: WEB_APP_URL }}
-        startInLoadingState
-        style={styles.webView}
-      />
-      {isStudySelected && !isSubpageOpen ? (
-        <BottomTabBar activeTab={activeTab} onTabPress={navigateToTab} />
-      ) : !isSubpageOpen ? (
-        <View style={styles.tabPlaceholder} />
-      ) : null}
+      <View
+        {...edgeSwipeBackResponder.panHandlers}
+        style={styles.gestureContainer}
+      >
+        <WebView
+          androidLayerType="software"
+          cacheEnabled
+          injectedJavaScriptBeforeContentLoaded={injectedSession}
+          key={reloadKey}
+          onHttpError={(event) => {
+            console.warn('WebView HTTP error', event.nativeEvent.statusCode);
+          }}
+          onLoadEnd={syncLatestData}
+          onMessage={handleMessage}
+          onShouldStartLoadWithRequest={handleNavigationRequest}
+          originWhitelist={['http://*', 'https://*']}
+          ref={webViewRef}
+          renderError={() => (
+            <View style={styles.errorState}>
+              <Text style={styles.errorTitle}>화면을 불러오지 못했어요</Text>
+              <Text style={styles.errorDescription}>
+                웹 앱 실행 상태와 네트워크 연결을 확인해 주세요.
+              </Text>
+              <Pressable
+                onPress={() => setReloadKey((current) => current + 1)}
+                style={styles.retryButton}
+              >
+                <Text style={styles.retryLabel}>다시 시도</Text>
+              </Pressable>
+            </View>
+          )}
+          renderLoading={() => (
+            <View style={styles.loadingState}>
+              <ActivityIndicator color="#00C471" size="large" />
+            </View>
+          )}
+          source={{ uri: WEB_APP_URL }}
+          startInLoadingState
+          style={styles.webView}
+        />
+        {isStudySelected && !isSubpageOpen ? (
+          <BottomTabBar activeTab={activeTab} onTabPress={navigateToTab} />
+        ) : !isSubpageOpen ? (
+          <View style={styles.tabPlaceholder} />
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -1210,6 +1267,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  gestureContainer: {
+    flex: 1,
   },
   webView: {
     flex: 1,
