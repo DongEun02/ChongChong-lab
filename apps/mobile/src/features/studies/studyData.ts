@@ -6,8 +6,6 @@ import {
   collection,
   getFirestore,
   onSnapshot,
-  orderBy,
-  query,
 } from '@react-native-firebase/firestore';
 
 export type CreateStudyInput = {
@@ -102,7 +100,11 @@ export function subscribeToUserStudies(
       Object.assign(progress, update);
       emit();
     };
-    const reportError = (error: Error) => onError(error);
+    const recoverProgress = (fallback: Partial<LeaderProgress>) =>
+      (error: Error) => {
+        console.warn('Study progress subscription error', error);
+        updateAndEmit(fallback);
+      };
 
     const unsubscribeMembers = onSnapshot(
       collection(getFirestore(), 'studies', studyId, 'members'),
@@ -116,7 +118,7 @@ export function subscribeToUserStudies(
           }),
         });
       },
-      reportError,
+      recoverProgress({ memberIds: [] }),
     );
     const unsubscribeNotices = onSnapshot(
       collection(getFirestore(), 'studies', studyId, 'notices'),
@@ -127,7 +129,7 @@ export function subscribeToUserStudies(
           ),
         });
       },
-      reportError,
+      recoverProgress({ notices: [] }),
     );
     const unsubscribeAssignments = onSnapshot(
       collection(getFirestore(), 'studies', studyId, 'assignments'),
@@ -138,7 +140,7 @@ export function subscribeToUserStudies(
           ),
         });
       },
-      reportError,
+      recoverProgress({ assignments: [] }),
     );
 
     leaderSubscriptions.set(studyId, [
@@ -149,15 +151,17 @@ export function subscribeToUserStudies(
   };
 
   const unsubscribeStudies = onSnapshot(
-    query(
-      collection(getFirestore(), 'users', userId, 'studies'),
-      orderBy('createdAt', 'desc'),
-    ),
+    collection(getFirestore(), 'users', userId, 'studies'),
     (snapshot) => {
-      studies = snapshot.docs.flatMap((document) => {
-        const study = parseStudyListPayload(document.id, document.data());
-        return study ? [study] : [];
-      });
+      studies = [...snapshot.docs]
+        .sort(
+          (left, right) =>
+            getCreatedAtMillis(right.data()) - getCreatedAtMillis(left.data()),
+        )
+        .flatMap((document) => {
+          const study = parseStudyListPayload(document.id, document.data());
+          return study ? [study] : [];
+        });
 
       const leaderStudyIds = new Set(
         studies
@@ -192,6 +196,24 @@ export function subscribeToUserStudies(
     leaderSubscriptions.clear();
     leaderProgress.clear();
   };
+}
+
+function getCreatedAtMillis(data: Record<string, unknown>) {
+  const createdAt = data.createdAt;
+  if (
+    typeof createdAt !== 'object' ||
+    createdAt === null ||
+    !('toMillis' in createdAt) ||
+    typeof createdAt.toMillis !== 'function'
+  ) {
+    return 0;
+  }
+
+  try {
+    return createdAt.toMillis();
+  } catch {
+    return 0;
+  }
 }
 
 type LeaderProgress = {
