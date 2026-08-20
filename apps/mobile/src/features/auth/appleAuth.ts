@@ -9,7 +9,22 @@ import {
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 
+import { updateDisplayName } from './profileData';
+
 const APPLE_USER_STORAGE_KEY = '@chongchong/apple-user-id';
+const APPLE_NAME_NORMALIZED_STORAGE_KEY_PREFIX =
+  '@chongchong/apple-name-normalized';
+const HANGUL_NAME_PATTERN = /^[가-힣]+$/u;
+const TWO_SYLLABLE_KOREAN_FAMILY_NAMES = new Set([
+  '남궁',
+  '독고',
+  '동방',
+  '사공',
+  '서문',
+  '선우',
+  '제갈',
+  '황보',
+]);
 
 export async function signInWithApple(): Promise<void> {
   const rawNonce = `${Crypto.randomUUID()}${Crypto.randomUUID()}`;
@@ -34,8 +49,13 @@ export async function signInWithApple(): Promise<void> {
     rawNonce,
     response.fullName ?? undefined,
   );
-  await signInWithCredential(getAuth(), credential);
+  const userCredential = await signInWithCredential(getAuth(), credential);
   await AsyncStorage.setItem(APPLE_USER_STORAGE_KEY, response.user);
+  await syncKoreanAppleDisplayName(
+    response.user,
+    response.fullName,
+    userCredential.user.displayName,
+  );
 }
 
 export async function signOutFromApple(): Promise<void> {
@@ -54,6 +74,9 @@ export async function revokeAppleAuthorization(): Promise<void> {
 
   await revokeToken(getAuth(), response.authorizationCode);
   await AsyncStorage.removeItem(APPLE_USER_STORAGE_KEY);
+  if (storedUserId) {
+    await AsyncStorage.removeItem(getAppleNameNormalizedStorageKey(storedUserId));
+  }
 }
 
 export function getAppleAuthErrorMessage(error: unknown): string {
@@ -85,4 +108,76 @@ function hasErrorCode(error: unknown): error is { code: string } {
     'code' in error &&
     typeof error.code === 'string'
   );
+}
+
+async function syncKoreanAppleDisplayName(
+  appleUserId: string,
+  fullName: AppleAuthentication.AppleAuthenticationFullName | null,
+  currentDisplayName: string | null,
+): Promise<void> {
+  const storageKey = getAppleNameNormalizedStorageKey(appleUserId);
+  const wasNormalized = await AsyncStorage.getItem(storageKey);
+  if (wasNormalized) {
+    return;
+  }
+
+  const normalizedDisplayName = resolveKoreanAppleDisplayName(
+    fullName,
+    currentDisplayName,
+  );
+
+  if (!normalizedDisplayName || normalizedDisplayName === currentDisplayName) {
+    await AsyncStorage.setItem(storageKey, 'true');
+    return;
+  }
+
+  try {
+    await updateDisplayName(normalizedDisplayName);
+    await AsyncStorage.setItem(storageKey, 'true');
+  } catch (error) {
+    console.warn('Apple 로그인 이름 순서를 정리하지 못했어요.', error);
+  }
+}
+
+function resolveKoreanAppleDisplayName(
+  fullName: AppleAuthentication.AppleAuthenticationFullName | null,
+  currentDisplayName: string | null,
+): string | null {
+  const familyName = fullName?.familyName?.trim();
+  const givenName = fullName?.givenName?.trim();
+
+  if (
+    familyName &&
+    givenName &&
+    HANGUL_NAME_PATTERN.test(familyName) &&
+    HANGUL_NAME_PATTERN.test(givenName)
+  ) {
+    return `${familyName}${givenName}`;
+  }
+
+  const nameParts = currentDisplayName?.trim().split(/\s+/u) ?? [];
+  if (nameParts.length !== 2) {
+    return null;
+  }
+
+  const [givenNamePart, familyNamePart] = nameParts;
+  if (
+    !HANGUL_NAME_PATTERN.test(givenNamePart) ||
+    !isKoreanFamilyName(familyNamePart)
+  ) {
+    return null;
+  }
+
+  return `${familyNamePart}${givenNamePart}`;
+}
+
+function isKoreanFamilyName(value: string): boolean {
+  return (
+    Array.from(value).length === 1 ||
+    TWO_SYLLABLE_KOREAN_FAMILY_NAMES.has(value)
+  );
+}
+
+function getAppleNameNormalizedStorageKey(appleUserId: string): string {
+  return `${APPLE_NAME_NORMALIZED_STORAGE_KEY_PREFIX}:${appleUserId}`;
 }
