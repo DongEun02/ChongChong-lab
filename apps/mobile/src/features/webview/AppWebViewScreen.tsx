@@ -57,6 +57,7 @@ import {
 } from '../studies/memberData';
 
 type AppWebViewScreenProps = {
+  displayName?: string | null;
   onOpenProfile: () => void;
   user: User;
 };
@@ -227,6 +228,7 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
     'open-join-study',
     'open-notifications',
     'open-profile',
+    'web-ready',
   ].includes(String(value.type));
 }
 
@@ -337,7 +339,11 @@ function createNotificationDataScript(
   return `window.dispatchEvent(new CustomEvent('chongchong:notifications', { detail: ${detail} })); true;`;
 }
 
-export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps) {
+export function AppWebViewScreen({
+  displayName,
+  onOpenProfile,
+  user,
+}: AppWebViewScreenProps) {
   const { showAlert } = useAlertModal();
   const webViewRef = useRef<WebView>(null);
   const latestAssignmentsRef = useRef<AssignmentPayload[] | undefined>(
@@ -350,19 +356,20 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
     undefined,
   );
   const deletingStudyIdRef = useRef<string | undefined>(undefined);
+  const pendingStudyIdRef = useRef<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [isStudySelected, setIsStudySelected] = useState(false);
   const [isSubpageOpen, setIsSubpageOpen] = useState(false);
   const [selectedStudyId, setSelectedStudyId] = useState<string>();
   const [reloadKey, setReloadKey] = useState(0);
   const injectedSession = useMemo(() => {
-    const session = JSON.stringify({ displayName: user.displayName }).replaceAll(
+    const session = JSON.stringify({ displayName }).replaceAll(
       '<',
       '\\u003c',
     );
 
     return `window.__CHONGCHONG_SESSION__ = ${session}; true;`;
-  }, [user.displayName]);
+  }, [displayName]);
 
   const navigateToTab = useCallback((tab: AppTab) => {
     setActiveTab(tab);
@@ -375,9 +382,18 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
       user.uid,
       (studies) => {
         latestStudiesRef.current = studies;
+        const hasSelectedStudy = studies.some(
+          (study) => study.id === selectedStudyId,
+        );
+
+        if (hasSelectedStudy && pendingStudyIdRef.current === selectedStudyId) {
+          pendingStudyIdRef.current = undefined;
+        }
+
         if (
           selectedStudyId &&
-          !studies.some((study) => study.id === selectedStudyId)
+          !hasSelectedStudy &&
+          pendingStudyIdRef.current !== selectedStudyId
         ) {
           const wasDeletedByCurrentUser =
             deletingStudyIdRef.current === selectedStudyId;
@@ -516,12 +532,51 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
     return () => subscription.remove();
   }, [isStudySelected, isSubpageOpen]);
 
+  const syncLatestData = useCallback(() => {
+    if (isStudySelected) {
+      webViewRef.current?.injectJavaScript(createNavigationScript(activeTab));
+    }
+    if (latestNoticesRef.current) {
+      webViewRef.current?.injectJavaScript(
+        createNoticeDataScript('ready', latestNoticesRef.current),
+      );
+    }
+    if (latestAssignmentsRef.current) {
+      webViewRef.current?.injectJavaScript(
+        createAssignmentDataScript('ready', latestAssignmentsRef.current),
+      );
+    }
+    if (latestStudiesRef.current) {
+      webViewRef.current?.injectJavaScript(
+        createStudyListScript('ready', latestStudiesRef.current),
+      );
+    }
+    if (latestMembersRef.current) {
+      webViewRef.current?.injectJavaScript(
+        createMemberDataScript('ready', latestMembersRef.current),
+      );
+    }
+    if (latestNotificationsRef.current) {
+      webViewRef.current?.injectJavaScript(
+        createNotificationDataScript(
+          'ready',
+          latestNotificationsRef.current,
+        ),
+      );
+    }
+  }, [activeTab, isStudySelected]);
+
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
       try {
         const message: unknown = JSON.parse(event.nativeEvent.data);
 
         if (!isWebViewMessage(message)) {
+          return;
+        }
+
+        if (message.type === 'web-ready') {
+          syncLatestData();
           return;
         }
 
@@ -639,6 +694,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
             name: message.name,
           })
             .then((study) => {
+              pendingStudyIdRef.current = study.id;
               setIsStudySelected(true);
               setIsSubpageOpen(false);
               setSelectedStudyId(study.id);
@@ -662,6 +718,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         if (message.type === 'join-study') {
           void joinStudy(message.inviteUrl)
             .then((study) => {
+              pendingStudyIdRef.current = study.id;
               setIsStudySelected(true);
               setIsSubpageOpen(false);
               setSelectedStudyId(study.id);
@@ -1050,7 +1107,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         // 타입이 지정되지 않은 WebView 메시지는 무시합니다.
       }
     },
-    [onOpenProfile, selectedStudyId, showAlert],
+    [onOpenProfile, selectedStudyId, showAlert, syncLatestData],
   );
 
   const handleNavigationRequest = useCallback(
@@ -1084,42 +1141,7 @@ export function AppWebViewScreen({ onOpenProfile, user }: AppWebViewScreenProps)
         onHttpError={(event) => {
           console.warn('WebView HTTP error', event.nativeEvent.statusCode);
         }}
-        onLoadEnd={() => {
-          if (isStudySelected) {
-            webViewRef.current?.injectJavaScript(createNavigationScript(activeTab));
-          }
-          if (latestNoticesRef.current) {
-            webViewRef.current?.injectJavaScript(
-              createNoticeDataScript('ready', latestNoticesRef.current),
-            );
-          }
-          if (latestAssignmentsRef.current) {
-            webViewRef.current?.injectJavaScript(
-              createAssignmentDataScript(
-                'ready',
-                latestAssignmentsRef.current,
-              ),
-            );
-          }
-          if (latestStudiesRef.current) {
-            webViewRef.current?.injectJavaScript(
-              createStudyListScript('ready', latestStudiesRef.current),
-            );
-          }
-          if (latestMembersRef.current) {
-            webViewRef.current?.injectJavaScript(
-              createMemberDataScript('ready', latestMembersRef.current),
-            );
-          }
-          if (latestNotificationsRef.current) {
-            webViewRef.current?.injectJavaScript(
-              createNotificationDataScript(
-                'ready',
-                latestNotificationsRef.current,
-              ),
-            );
-          }
-        }}
+        onLoadEnd={syncLatestData}
         onMessage={handleMessage}
         onShouldStartLoadWithRequest={handleNavigationRequest}
         originWhitelist={['http://*', 'https://*']}

@@ -1,6 +1,7 @@
 export type AppTab = 'home' | 'notices' | 'assignments' | 'members';
 
 export type WebViewMessage =
+  | { type: 'web-ready' }
   | { type: 'close-notifications' }
   | { type: 'close-create-notice' }
   | { type: 'close-create-assignment' }
