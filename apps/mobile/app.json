@@ -8,6 +8,12 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0ea75dd6-7031-4c01-b9c5-4f3177899b46"
+    },
     "ios": {
       "buildNumber": "1",
       "bundleIdentifier": "com.chongchong.app",
