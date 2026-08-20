@@ -10,7 +10,7 @@ import homeNoticeIcon from './assets/figma/home-notice.svg'
 import leadHomeMascot from './assets/figma/lead-home-mascot.png'
 import membersIcon from './assets/figma/members.svg'
 import noticesIcon from './assets/figma/notices.svg'
-import reminderMascot from './assets/figma/reminder-mascot.png'
+import reminderMascot from './assets/figma/reminder-mascot-green.png'
 import { AssignmentListPage } from './features/assignments/AssignmentListPage'
 import { AssignmentDetailPage } from './features/assignments/AssignmentDetailPage'
 import {
@@ -1192,7 +1192,11 @@ function App() {
       noticeDataStatus={noticeDataStatus}
       notices={notices}
       study={selectedStudy}
-      onBack={closeStudy}
+      onBack={
+        activeTab === 'notices' || activeTab === 'assignments'
+          ? () => navigateToStudyTab('home')
+          : closeStudy
+      }
       onCopyInviteLink={copyInviteLink}
       onDeleteStudy={deleteSelectedStudy}
       onRemoveMember={removeMember}
@@ -1281,7 +1285,9 @@ function StudyList({
         </button>
 
         <aside className="reminder-card">
-          <img alt="" src={reminderMascot} />
+          <span aria-hidden="true" className="reminder-mascot">
+            <img alt="" src={reminderMascot} />
+          </span>
           <span>
             <strong>리마인드는 총총이 보낼게요</strong>
             <small>정해둔 시각에 미확인자, 미제출자에게 알림을 보내요</small>
@@ -1357,7 +1363,12 @@ function StudyPage({
   return (
     <main className="screen study-screen">
       <header className="study-header">
-        <button aria-label="스터디 목록으로 돌아가기" className="icon-button" onClick={onBack} type="button">
+        <button
+          aria-label={activeTab === 'home' ? '스터디 목록으로 돌아가기' : '스터디 홈으로 돌아가기'}
+          className="icon-button"
+          onClick={onBack}
+          type="button"
+        >
           <img alt="" src={backIcon} />
         </button>
         <span className="study-header-copy">

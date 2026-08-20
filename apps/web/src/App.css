@@ -185,11 +185,23 @@ button {
   padding: 16px;
 }
 
-.reminder-card img {
+.reminder-mascot {
+  position: relative;
+  display: block;
+  overflow: hidden;
   width: 52px;
   height: 52px;
+  flex: 0 0 52px;
   border-radius: 16px;
-  object-fit: contain;
+}
+
+.reminder-mascot img {
+  position: absolute;
+  top: 3px;
+  left: -5px;
+  width: 60px;
+  height: 60px;
+  max-width: none;
 }
 
 .reminder-card span {
