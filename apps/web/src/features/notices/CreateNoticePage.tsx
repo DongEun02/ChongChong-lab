@@ -1,9 +1,12 @@
-import { useRef, useState, type FormEvent } from 'react'
-import { flushSync } from 'react-dom'
+import { useState, type FormEvent } from 'react'
 
 import backIcon from '../../assets/figma/back.svg'
 import reminderPlusIcon from '../../assets/figma/reminder-plus.svg'
 import reminderRemoveIcon from '../../assets/figma/reminder-remove.svg'
+import {
+  ReminderDateTimePicker,
+} from '../../components/ReminderDateTimePicker'
+import { formatReminderDateTime } from '../../components/reminderDateTime'
 import './CreateNoticePage.css'
 
 export type CreateNoticeInput = {
@@ -35,17 +38,16 @@ export function CreateNoticePage({
 }: CreateNoticePageProps) {
   const [title, setTitle] = useState(initialValue?.title ?? '')
   const [content, setContent] = useState(initialValue?.content ?? '')
-  const [reminderValues, setReminderValues] = useState(() => {
-    const futureReminders = (initialValue?.reminderAts ?? [])
+  const [reminderValues, setReminderValues] = useState(() =>
+    (initialValue?.reminderAts ?? [])
       .filter((value) => new Date(value) > new Date())
-      .map((value) => toLocalDateTime(new Date(value)))
-    return futureReminders
-  })
-  const reminderInputRefs = useRef<Array<HTMLInputElement | null>>([])
+      .map((value) => toLocalDateTime(new Date(value))),
+  )
+  const [activeReminderIndex, setActiveReminderIndex] = useState<number | 'new' | null>(null)
   const [minimumReminderValue] = useState(() => toLocalDateTime(new Date()))
   const areRemindersValid = reminderValues.every((value) => {
     const date = new Date(value)
-    return value !== '' && Number.isFinite(date.getTime()) && date > new Date()
+    return Number.isFinite(date.getTime()) && date > new Date()
   })
   const canSubmit =
     title.trim().length >= 1 &&
@@ -57,9 +59,7 @@ export function CreateNoticePage({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!canSubmit) {
-      return
-    }
+    if (!canSubmit) return
 
     onSubmit({
       content,
@@ -68,20 +68,15 @@ export function CreateNoticePage({
     })
   }
 
-  const updateReminder = (index: number, value: string) => {
-    setReminderValues((current) =>
-      current.map((candidate, candidateIndex) =>
-        candidateIndex === index ? value : candidate,
-      ),
-    )
-  }
-
-  const addReminder = () => {
-    const nextIndex = reminderValues.length
-    flushSync(() => {
-      setReminderValues((current) => [...current, ''])
-    })
-    openDateTimePicker(reminderInputRefs.current[nextIndex])
+  const confirmReminder = (value: string) => {
+    if (activeReminderIndex === 'new') {
+      setReminderValues((current) => [...current, value])
+    } else if (activeReminderIndex !== null) {
+      setReminderValues((current) =>
+        current.map((candidate, index) => index === activeReminderIndex ? value : candidate),
+      )
+    }
+    setActiveReminderIndex(null)
   }
 
   return (
@@ -128,40 +123,37 @@ export function CreateNoticePage({
         <fieldset className="create-notice-reminders">
           <legend className="create-notice-label">리마인드 시각 <small>(선택)</small></legend>
           {reminderValues.map((value, index) => (
-            <label className="reminder-input" key={index}>
-              <input
+            <div className="reminder-input" key={`${value}-${index}`}>
+              <button
                 aria-label={`리마인드 시각 ${index + 1}`}
+                className="reminder-value-button"
                 disabled={isSubmitting}
-                min={minimumReminderValue}
-                onChange={(event) => updateReminder(index, event.target.value)}
-                ref={(element) => {
-                  reminderInputRefs.current[index] = element
-                }}
-                type="datetime-local"
-                value={value}
-              />
-              {reminderValues.length > 0 ? (
-                <button
-                  aria-label={`리마인드 시각 ${index + 1} 삭제`}
-                  disabled={isSubmitting}
-                  onClick={() =>
-                    setReminderValues((current) =>
-                      current.filter((_, candidateIndex) => candidateIndex !== index),
-                    )
-                  }
-                  type="button"
-                >
-                  <img alt="" src={reminderRemoveIcon} />
-                </button>
-              ) : null}
-            </label>
+                onClick={() => setActiveReminderIndex(index)}
+                type="button"
+              >
+                {formatReminderDateTime(value)}
+              </button>
+              <button
+                aria-label={`리마인드 시각 ${index + 1} 삭제`}
+                className="reminder-remove-button"
+                disabled={isSubmitting}
+                onClick={() =>
+                  setReminderValues((current) =>
+                    current.filter((_, candidateIndex) => candidateIndex !== index),
+                  )
+                }
+                type="button"
+              >
+                <img alt="" src={reminderRemoveIcon} />
+              </button>
+            </div>
           ))}
           {reminderValues.length < MAX_REMINDER_COUNT ? (
             <button
               aria-label="리마인드 시각 추가"
               className="add-reminder-button"
               disabled={isSubmitting}
-              onClick={addReminder}
+              onClick={() => setActiveReminderIndex('new')}
               type="button"
             >
               <img alt="" src={reminderPlusIcon} />
@@ -178,6 +170,16 @@ export function CreateNoticePage({
             : mode === 'edit' ? '공지 수정하기' : '공지 올리기'}
         </button>
       </form>
+
+      {activeReminderIndex !== null ? (
+        <ReminderDateTimePicker
+          key={activeReminderIndex}
+          min={minimumReminderValue}
+          onClose={() => setActiveReminderIndex(null)}
+          onConfirm={confirmReminder}
+          value={typeof activeReminderIndex === 'number' ? reminderValues[activeReminderIndex] : undefined}
+        />
+      ) : null}
     </main>
   )
 }
@@ -185,17 +187,4 @@ export function CreateNoticePage({
 function toLocalDateTime(date: Date) {
   const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
   return offsetDate.toISOString().slice(0, 16)
-}
-
-function openDateTimePicker(input: HTMLInputElement | null) {
-  if (!input) {
-    return
-  }
-
-  input.focus()
-  try {
-    input.showPicker()
-  } catch {
-    input.click()
-  }
 }

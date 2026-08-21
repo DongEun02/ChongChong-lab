@@ -1,5 +1,6 @@
 import submissionLinkIcon from '../../assets/figma/submission-link.svg'
 import clockIcon from '../../assets/figma/clock.svg'
+import { ContentEmptyState } from '../../components/ContentEmptyState'
 import {
   formatAssignmentDeadline,
   getAssignmentPreview,
@@ -31,7 +32,10 @@ export function AssignmentListPage({
           과제 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
         </p>
       ) : assignments.length === 0 ? (
-        <p className="assignment-data-state">아직 등록된 과제가 없어요.</p>
+        <ContentEmptyState
+          description="새 과제가 등록되면 여기에서 확인할 수 있어요"
+          title="아직 등록된 과제가 없어요"
+        />
       ) : null}
 
       <div aria-label="과제 목록" className="assignment-list">

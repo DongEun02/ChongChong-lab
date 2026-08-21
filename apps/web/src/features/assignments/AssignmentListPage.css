@@ -1,4 +1,7 @@
 .assignment-list-page {
+  display: flex;
+  min-height: calc(100svh - 64px);
+  flex-direction: column;
   padding: 20px;
 }
 
