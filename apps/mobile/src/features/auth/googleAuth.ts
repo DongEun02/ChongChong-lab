@@ -2,7 +2,6 @@ import {
   GoogleOneTapSignIn,
   isCancelledResponse,
   isErrorWithCode,
-  isNoSavedCredentialFoundResponse,
   isSuccessResponse,
   statusCodes,
 } from 'react-native-nitro-google-signin';
@@ -14,6 +13,13 @@ import {
 } from '@react-native-firebase/auth';
 
 let isConfigured = false;
+
+class GoogleSignInCancelledError extends Error {
+  constructor() {
+    super('Google sign-in was cancelled.');
+    this.name = 'GoogleSignInCancelledError';
+  }
+}
 
 function configureGoogleAuth() {
   if (isConfigured) {
@@ -31,18 +37,10 @@ export async function signInWithGoogle(): Promise<void> {
   configureGoogleAuth();
   await GoogleOneTapSignIn.checkPlayServices();
 
-  let response = await GoogleOneTapSignIn.signIn();
-
-  if (isNoSavedCredentialFoundResponse(response)) {
-    response = await GoogleOneTapSignIn.createAccount();
-  }
-
-  if (isNoSavedCredentialFoundResponse(response)) {
-    response = await GoogleOneTapSignIn.presentExplicitSignIn();
-  }
+  const response = await GoogleOneTapSignIn.presentExplicitSignIn();
 
   if (isCancelledResponse(response)) {
-    return;
+    throw new GoogleSignInCancelledError();
   }
 
   if (!isSuccessResponse(response)) {
@@ -58,6 +56,10 @@ export async function signOutFromGoogle(): Promise<void> {
 }
 
 export function getGoogleAuthErrorMessage(error: unknown): string {
+  if (error instanceof GoogleSignInCancelledError) {
+    return '로그인이 취소됐어요.';
+  }
+
   if (isErrorWithCode(error)) {
     if (error.code === statusCodes.SIGN_IN_CANCELLED) {
       return '로그인이 취소됐어요.';
