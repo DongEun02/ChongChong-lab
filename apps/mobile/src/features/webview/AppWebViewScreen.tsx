@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { useAlertModal } from '../../components/AlertModal';
-import { trackScreen } from '../monitoring/monitoring';
+import { trackEvent, trackScreen } from '../monitoring/monitoring';
 import { BottomTabBar } from './BottomTabBar';
 import type { AppTab, WebViewMessage } from './types';
 import {
@@ -180,7 +180,8 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
   if (value.type === 'send-assignment-reminder') {
     return 'assignmentId' in value && typeof value.assignmentId === 'string' &&
       'memberIds' in value && Array.isArray(value.memberIds) &&
-      value.memberIds.every((item) => typeof item === 'string');
+      value.memberIds.every((item) => typeof item === 'string') &&
+      (!('source' in value) || value.source === 'all' || value.source === 'member');
   }
 
   if (value.type === 'send-notice-reminder') {
@@ -189,7 +190,8 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
       typeof value.noticeId === 'string' &&
       'memberIds' in value &&
       Array.isArray(value.memberIds) &&
-      value.memberIds.every((memberId) => typeof memberId === 'string')
+      value.memberIds.every((memberId) => typeof memberId === 'string') &&
+      (!('source' in value) || value.source === 'all' || value.source === 'member')
     );
   }
 
@@ -1011,6 +1013,12 @@ export function AppWebViewScreen({
         }
 
         if (message.type === 'send-notice-reminder') {
+          void trackEvent('notification_send_click', {
+            content_type: 'notice',
+            recipient_count: message.memberIds.length,
+            source: message.source ?? 'unknown',
+          }).catch(() => undefined);
+
           if (!selectedStudyId) {
             showAlert('발송 실패', '선택한 스터디 정보를 찾지 못했어요.');
             return;
@@ -1038,6 +1046,12 @@ export function AppWebViewScreen({
         }
 
         if (message.type === 'send-assignment-reminder') {
+          void trackEvent('notification_send_click', {
+            content_type: 'assignment',
+            recipient_count: message.memberIds.length,
+            source: message.source ?? 'unknown',
+          }).catch(() => undefined);
+
           if (!selectedStudyId) return;
           void requestAssignmentReminder(selectedStudyId, message.assignmentId, message.memberIds)
             .then(({ targetCount }) => showAlert('리마인드 발송 완료', `미제출 ${targetCount}명에게 푸시 알림을 요청했어요.`))

@@ -19,7 +19,7 @@ type Props = {
   onBack: () => void
   onDelete: (assignmentId: string) => void
   onEdit: (assignmentId: string) => void
-  onReminder: (memberIds: string[]) => void
+  onReminder: (memberIds: string[], source: 'all' | 'member') => void
   onSubmit: (content: string, link?: string) => void
   role: 'leader' | 'member'
 }
@@ -107,9 +107,9 @@ export function AssignmentDetailPage({ assignment, deleteError, errorMessage, is
             <div className="submitted-member-chips">{assignment.members.filter((member) => member.submitted).map((member) => <span key={member.id}>{member.name}</span>)}</div>
             <span className="assignment-progress-label is-muted">◷ 미제출 {unsubmitted.length}명</span>
             {unsubmitted.map((member) => (
-              <div className="unsubmitted-member" key={member.id}><span><b>{member.name}</b><small>{member.lastReminderLabel ?? '아직 보내지 않음'}</small></span><button onClick={() => onReminder([member.id])} type="button"><img alt="" src={sendIcon} />보내기</button></div>
+              <div className="unsubmitted-member" key={member.id}><span><b>{member.name}</b><small>{member.lastReminderLabel ?? '아직 보내지 않음'}</small></span><button onClick={() => onReminder([member.id], 'member')} type="button"><img alt="" src={sendIcon} />보내기</button></div>
             ))}
-            {unsubmitted.length ? <button className="remind-all-button" onClick={() => onReminder(unsubmitted.map((member) => member.id))} type="button">모두에게 보내기</button> : null}
+            {unsubmitted.length ? <button className="remind-all-button" onClick={() => onReminder(unsubmitted.map((member) => member.id), 'all')} type="button">모두에게 보내기</button> : null}
           </section>
         ) : null}
 
