@@ -1,6 +1,8 @@
 {
   "react-native": {
-    "crashlytics_javascript_exception_handler_chaining_enabled": false
+    "crashlytics_javascript_exception_handler_chaining_enabled": false,
+    "messaging_android_notification_channel_id": "general",
+    "messaging_android_notification_color": "@color/notification_icon_color"
   },
   "functions": {
     "source": "functions",
