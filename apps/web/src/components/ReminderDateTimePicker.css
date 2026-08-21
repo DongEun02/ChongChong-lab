@@ -1,0 +1,284 @@
+.reminder-picker-overlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  visibility: hidden;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+  transition: visibility 0s linear 280ms;
+}
+
+.reminder-picker-overlay.is-open {
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+.reminder-picker-backdrop {
+  position: absolute;
+  border: 0;
+  background: rgba(17, 24, 39, 0.42);
+  cursor: default;
+  inset: 0;
+  transition: opacity 280ms ease;
+}
+
+.reminder-picker-sheet {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  width: min(100%, 480px);
+  max-height: 100dvh;
+  padding: 0 20px calc(34px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background: #fff;
+  box-shadow: 0 -12px 40px rgba(15, 23, 42, 0.12);
+  color: #172033;
+  outline: none;
+  overscroll-behavior: contain;
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.reminder-picker-sheet.is-dragging,
+.reminder-picker-sheet.is-dragging ~ * {
+  transition: none;
+}
+
+.reminder-picker-handle-area {
+  display: flex;
+  width: 100%;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.reminder-picker-handle-area:active {
+  cursor: grabbing;
+}
+
+.reminder-picker-handle-area span {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.reminder-picker-header {
+  display: flex;
+  height: 44px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reminder-picker-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  line-height: 28px;
+}
+
+.reminder-picker-header button {
+  padding: 8px 0 8px 16px;
+  border: 0;
+  background: transparent;
+  color: #00c471;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.reminder-picker-summary {
+  display: flex;
+  width: 100%;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  border-radius: 12px;
+  background: #e1f8ed;
+  font-size: 16px;
+  letter-spacing: -0.4px;
+}
+
+.reminder-month-header {
+  display: grid;
+  height: 48px;
+  align-items: center;
+  margin-top: 8px;
+  grid-template-columns: 40px 1fr 40px;
+  text-align: center;
+}
+
+.reminder-month-header span {
+  font-size: 16px;
+  letter-spacing: -0.4px;
+}
+
+.reminder-month-header button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(15, 23, 42, 0.4);
+  cursor: pointer;
+  font-size: 28px;
+  place-items: center;
+}
+
+.reminder-month-header button:disabled {
+  cursor: default;
+  opacity: 0.28;
+}
+
+.reminder-weekdays,
+.reminder-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.reminder-weekdays {
+  height: 20px;
+  align-items: center;
+  color: rgba(15, 23, 42, 0.4);
+  font-size: 12px;
+  text-align: center;
+}
+
+.reminder-weekdays span:first-child {
+  color: #ef5b54;
+}
+
+.reminder-calendar-grid {
+  margin-top: 8px;
+  grid-auto-rows: 36px;
+}
+
+.reminder-calendar-grid button {
+  display: grid;
+  width: 100%;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #111;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  place-items: center;
+}
+
+.reminder-calendar-grid button.is-sunday {
+  color: #ef5b54;
+}
+
+.reminder-calendar-grid button.is-selected {
+  width: 32px;
+  height: 32px;
+  align-self: center;
+  justify-self: center;
+  border-radius: 999px;
+  background: #00c471;
+  color: #fff;
+}
+
+.reminder-calendar-grid button:disabled {
+  cursor: default;
+  opacity: 0.24;
+}
+
+.reminder-wheel-picker {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 236px;
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: #fff;
+  grid-template-columns: 1.2fr 1fr 1fr;
+}
+
+.reminder-wheel-selection {
+  position: absolute;
+  z-index: 0;
+  top: 96px;
+  right: 8px;
+  left: 8px;
+  height: 44px;
+  border-radius: 8px;
+  background: #e1f8ed;
+  pointer-events: none;
+}
+
+.reminder-wheel-column {
+  position: relative;
+  z-index: 1;
+  height: 236px;
+  padding: 96px 0;
+  overflow-y: auto;
+  box-sizing: border-box;
+  mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent);
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  scroll-snap-type: y mandatory;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent);
+  -webkit-overflow-scrolling: touch;
+}
+
+.reminder-wheel-column::-webkit-scrollbar {
+  display: none;
+}
+
+.reminder-wheel-column button {
+  display: flex;
+  width: 100%;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #172033;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  opacity: 0.48;
+  scroll-snap-align: center;
+}
+
+.reminder-wheel-column button.is-active {
+  opacity: 1;
+}
+
+.reminder-wheel-column button:disabled {
+  cursor: default;
+  opacity: 0.2;
+}
+
+@media (max-height: 650px) {
+  .reminder-picker-sheet {
+    overflow-y: auto;
+  }
+
+  .reminder-calendar-grid {
+    grid-auto-rows: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reminder-picker-backdrop,
+  .reminder-picker-sheet {
+    transition-duration: 1ms;
+  }
+}

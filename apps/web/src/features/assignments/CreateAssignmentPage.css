@@ -8,14 +8,15 @@
 .assignment-form-field input { height:54px; padding:14px 16px; }
 .assignment-form-field textarea { height:96px; padding:14px 16px; resize:none; }
 .assignment-form-field textarea.is-short { height:54px; }
-.assignment-form-field input, .assignment-form-field textarea, .assignment-date-input input { color:#172033; font:inherit; font-size:16px; outline:none; }
+.assignment-form-field input, .assignment-form-field textarea, .assignment-reminder-value { color:#172033; font:inherit; font-size:16px; outline:none; }
 .assignment-form-field input:focus, .assignment-form-field textarea:focus, .assignment-date-input:focus-within { border-color:#00c471; }
 .assignment-reminders { display:flex; flex-direction:column; padding:0; border:0; }
 .assignment-date-input { display:flex; height:52px; align-items:center; padding:0 12px 0 16px; }
 .assignment-date-input + .assignment-date-input, .assignment-date-input + .assignment-add-reminder { margin-top:4px; }
-.assignment-date-input input { flex:1; min-width:0; height:100%; border:0; background:transparent; }
-.assignment-date-input button { display:grid; width:32px; height:32px; padding:0; border:0; background:transparent; place-items:center; }
-.assignment-date-input button img, .assignment-add-reminder img { width:14px; height:14px; }
+.assignment-date-input button { border:0; background:transparent; cursor:pointer; font:inherit; }
+.assignment-reminder-value { flex:1; min-width:0; height:100%; padding:0; text-align:left; }
+.assignment-date-input .assignment-reminder-remove { display:grid; width:32px; height:32px; padding:0; place-items:center; }
+.assignment-reminder-remove img, .assignment-add-reminder img { width:14px; height:14px; }
 .assignment-add-reminder { display:grid; height:52px; place-items:center; }
 .assignment-reminders small { margin-top:4px; color:rgba(15,23,42,.55); font-size:12px; line-height:18px; }
 .assignment-form-error { margin:8px 0 0; color:#de5e56; font-size:12px; text-align:center; }
