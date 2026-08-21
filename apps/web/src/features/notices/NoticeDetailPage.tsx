@@ -18,7 +18,7 @@ type NoticeDetailPageProps = {
   onDelete: (noticeId: string) => void
   onEdit: (noticeId: string) => void
   onRead: (noticeId: string) => void
-  onSendReminder: (noticeId: string, memberIds: string[]) => void
+  onSendReminder: (noticeId: string, memberIds: string[], source: 'all' | 'member') => void
   role: 'leader' | 'member'
 }
 
@@ -86,8 +86,8 @@ export function NoticeDetailPage({
     return () => observer.disconnect()
   }, [notice.id, notice.isReadByCurrentUser, onRead, role])
 
-  const sendReminder = (memberIds: string[]) => {
-    onSendReminder(notice.id, memberIds)
+  const sendReminder = (memberIds: string[], source: 'all' | 'member') => {
+    onSendReminder(notice.id, memberIds, source)
   }
 
   const openDeleteDialog = () => {
@@ -170,7 +170,7 @@ export function NoticeDetailPage({
                   <small>{member.lastReminderLabel}</small>
                 </span>
                 <button
-                  onClick={() => sendReminder([member.id])}
+                  onClick={() => sendReminder([member.id], 'member')}
                   type="button"
                 >
                   <img alt="" src={sendIcon} />
@@ -183,7 +183,7 @@ export function NoticeDetailPage({
           <button
             className="send-all-button"
             disabled={unreadMembers.length === 0}
-            onClick={() => sendReminder(unreadMembers.map((member) => member.id))}
+            onClick={() => sendReminder(unreadMembers.map((member) => member.id), 'all')}
             type="button"
           >
             모두에게 보내기

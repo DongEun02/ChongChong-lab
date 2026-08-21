@@ -105,8 +105,8 @@ type NativeMessage =
     }
   | { type: 'open-profile' }
   | { type: 'remove-study-member'; displayName: string; memberId: string }
-  | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
-  | { type: 'send-assignment-reminder'; assignmentId: string; memberIds: string[] }
+  | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string; source: 'all' | 'member' }
+  | { type: 'send-assignment-reminder'; assignmentId: string; memberIds: string[]; source: 'all' | 'member' }
   | { type: 'study-selected'; studyId: string }
   | { type: 'submit-assignment'; assignmentId: string; content: string; link?: string }
   | { type: 'transfer-study-leadership'; displayName: string; memberId: string }
@@ -1156,7 +1156,7 @@ function App() {
         onBack={closeAssignment}
         onDelete={deleteAssignment}
         onEdit={openEditAssignment}
-        onReminder={(memberIds) => postToNative({ assignmentId: selectedAssignment.id, memberIds, type: 'send-assignment-reminder' })}
+        onReminder={(memberIds, source) => postToNative({ assignmentId: selectedAssignment.id, memberIds, source, type: 'send-assignment-reminder' })}
         onSubmit={submitSelectedAssignment}
         role={selectedStudy.role}
       />
@@ -1173,8 +1173,8 @@ function App() {
         onDelete={deleteNotice}
         onEdit={openEditNotice}
         onRead={(noticeId) => postToNative({ noticeId, type: 'mark-notice-read' })}
-        onSendReminder={(noticeId, memberIds) =>
-          postToNative({ type: 'send-notice-reminder', memberIds, noticeId })
+        onSendReminder={(noticeId, memberIds, source) =>
+          postToNative({ type: 'send-notice-reminder', memberIds, noticeId, source })
         }
         role={selectedStudy.role}
       />

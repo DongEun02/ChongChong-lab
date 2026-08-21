@@ -55,8 +55,18 @@ export type WebViewMessage =
     }
   | { type: 'open-profile' }
   | { type: 'remove-study-member'; displayName: string; memberId: string }
-  | { type: 'send-notice-reminder'; memberIds: string[]; noticeId: string }
-  | { type: 'send-assignment-reminder'; assignmentId: string; memberIds: string[] }
+  | {
+      type: 'send-notice-reminder';
+      memberIds: string[];
+      noticeId: string;
+      source?: 'all' | 'member';
+    }
+  | {
+      type: 'send-assignment-reminder';
+      assignmentId: string;
+      memberIds: string[];
+      source?: 'all' | 'member';
+    }
   | { type: 'study-selected'; studyId: string }
   | { type: 'submit-assignment'; assignmentId: string; content: string; link?: string }
   | { type: 'transfer-study-leadership'; displayName: string; memberId: string }
