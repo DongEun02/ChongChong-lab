@@ -1,4 +1,5 @@
 import clockIcon from '../../assets/figma/clock.svg'
+import { ContentEmptyState } from '../../components/ContentEmptyState'
 import {
   getNoticePreview,
   getRelativeTime,
@@ -34,7 +35,10 @@ export function NoticeListPage({
           Firestore 연결을 확인하지 못해 미리보기 데이터를 표시해요.
         </p>
       ) : notices.length === 0 ? (
-        <p className="notice-data-state">아직 작성된 공지가 없어요.</p>
+        <ContentEmptyState
+          description="새 공지가 올라오면 여기에서 확인할 수 있어요"
+          title="아직 작성된 공지가 없어요"
+        />
       ) : null}
       <div className="notice-list" aria-label="공지 목록">
         {sortedNotices.map((notice) => {
