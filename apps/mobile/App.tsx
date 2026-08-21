@@ -25,6 +25,12 @@ import { SplashScreen } from './src/features/auth/SplashScreen';
 import type { AuthProvider } from './src/features/auth/types';
 import { useAuthSession } from './src/features/auth/useAuthSession';
 import { usePushNotifications } from './src/features/notifications/usePushNotifications';
+import {
+  identifyMonitoringUser,
+  reportError,
+  trackEvent,
+  trackScreen,
+} from './src/features/monitoring/monitoring';
 import { AppWebViewScreen } from './src/features/webview/AppWebViewScreen';
 
 const SPLASH_DURATION_MS = 1_500;
@@ -59,6 +65,11 @@ function AppContent() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    void identifyMonitoringUser(user?.uid).catch(() => undefined);
+    void trackScreen(user ? 'study_list' : 'login').catch(() => undefined);
+  }, [user]);
 
   useEffect(() => {
     if (
@@ -97,8 +108,10 @@ function AppContent() {
       } else {
         await signInWithGoogle();
       }
+      void trackEvent('login_succeeded', { provider }).catch(() => undefined);
       setShouldEnablePushAfterSignIn(true);
     } catch (error) {
+      void trackEvent('login_failed', { provider }).catch(() => undefined);
       setLoginError(
         provider === 'apple'
           ? getAppleAuthErrorMessage(error)
@@ -119,7 +132,9 @@ function AppContent() {
       setShouldEnablePushAfterSignIn(false);
       setProfileOverride(undefined);
       setIsProfileVisible(false);
+      void trackEvent('logout_succeeded').catch(() => undefined);
     } catch (error) {
+      reportError(error, 'logout_failed');
       showAlert('로그아웃 실패', getGoogleAuthErrorMessage(error));
     }
   };
@@ -139,7 +154,9 @@ function AppContent() {
         await signOutFromGoogle();
       }
       setIsProfileVisible(false);
+      void trackEvent('account_deleted').catch(() => undefined);
     } catch (error) {
+      reportError(error, 'account_delete_failed');
       throw new Error(getAccountErrorMessage(error));
     }
   };
@@ -150,6 +167,8 @@ function AppContent() {
     if (user) {
       setProfileOverride({ displayName: nextDisplayName, uid: user.uid });
     }
+
+    void trackEvent('profile_name_updated').catch(() => undefined);
 
     return nextDisplayName;
   };

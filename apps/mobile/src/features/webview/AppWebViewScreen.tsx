@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { useAlertModal } from '../../components/AlertModal';
+import { trackScreen } from '../monitoring/monitoring';
 import { BottomTabBar } from './BottomTabBar';
 import type { AppTab, WebViewMessage } from './types';
 import {
@@ -383,6 +384,16 @@ export function AppWebViewScreen({
 
     return `window.__CHONGCHONG_SESSION__ = ${session}; true;`;
   }, [displayName]);
+
+  useEffect(() => {
+    const screenName = isSubpageOpen
+      ? `study_${activeTab}_detail`
+      : isStudySelected
+        ? `study_${activeTab}`
+        : 'study_list';
+
+    void trackScreen(screenName).catch(() => undefined);
+  }, [activeTab, isStudySelected, isSubpageOpen]);
 
   const navigateToTab = useCallback((tab: AppTab) => {
     setActiveTab(tab);
