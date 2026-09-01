@@ -56,7 +56,6 @@ import {
 import {
   removeStudyMember,
   subscribeToStudyMembers,
-  transferStudyLeadership,
   type StudyMemberPayload,
 } from '../studies/memberData';
 
@@ -206,15 +205,6 @@ function isWebViewMessage(value: unknown): value is WebViewMessage {
   }
 
   if (value.type === 'remove-study-member') {
-    return (
-      'memberId' in value &&
-      typeof value.memberId === 'string' &&
-      'displayName' in value &&
-      typeof value.displayName === 'string'
-    );
-  }
-
-  if (value.type === 'transfer-study-leadership') {
     return (
       'memberId' in value &&
       typeof value.memberId === 'string' &&
@@ -910,32 +900,6 @@ export function AppWebViewScreen({
           return;
         }
 
-        if (message.type === 'transfer-study-leadership') {
-          if (!selectedStudyId) {
-            showAlert('양도 실패', '선택한 스터디 정보를 찾지 못했어요.');
-            return;
-          }
-          showAlert(
-            '리드를 양도할까요?',
-            `${message.displayName}님이 새로운 리드가 되며, 양도 후에는 스터디 관리 권한을 잃게 돼요.`,
-            [
-              { style: 'cancel', text: '취소' },
-              {
-                onPress: () => {
-                  void transferStudyLeadership(selectedStudyId, message.memberId)
-                    .then(() => showAlert('양도 완료', `${message.displayName}님에게 리드를 양도했어요.`))
-                    .catch((error: unknown) => {
-                      console.warn('Study leadership transfer error', error);
-                      showAlert('양도하지 못했어요', getCallableErrorMessage(error, '잠시 후 다시 시도해 주세요.'));
-                    });
-                },
-                text: '양도하기',
-              },
-            ],
-          );
-          return;
-        }
-
         if (message.type === 'delete-study') {
           if (!selectedStudyId) {
             showAlert('삭제 실패', '선택한 스터디 정보를 찾지 못했어요.');
@@ -949,21 +913,20 @@ export function AppWebViewScreen({
               { style: 'cancel', text: '취소' },
               {
                 onPress: () => {
-                  deletingStudyIdRef.current = selectedStudyId;
-                  void deleteStudy(selectedStudyId)
+                  const deletingStudyId = selectedStudyId;
+                  deletingStudyIdRef.current = deletingStudyId;
+
+                  setIsStudySelected(false);
+                  setIsSubpageOpen(false);
+                  setSelectedStudyId(undefined);
+                  setActiveTab('home');
+                  webViewRef.current?.injectJavaScript(
+                    "window.dispatchEvent(new CustomEvent('chongchong:exit-study')); true;",
+                  );
+
+                  void deleteStudy(deletingStudyId)
                     .then(() => {
-                      setIsStudySelected(false);
-                      setIsSubpageOpen(false);
-                      setSelectedStudyId(undefined);
-                      setActiveTab('home');
-                      webViewRef.current?.injectJavaScript(
-                        "window.dispatchEvent(new CustomEvent('chongchong:exit-study')); true;",
-                      );
                       deletingStudyIdRef.current = undefined;
-                      showAlert(
-                        '삭제 완료',
-                        `${message.studyName} 스터디를 삭제했어요.`,
-                      );
                     })
                     .catch((error: unknown) => {
                       deletingStudyIdRef.current = undefined;

@@ -15,7 +15,6 @@ type MemberListPageProps = {
   onCopyInviteLink: (inviteUrl: string) => void
   onDeleteStudy: () => void
   onRemoveMember: (member: StudyMember) => void
-  onTransferLeadership: (member: StudyMember) => void
   status: 'error' | 'loading' | 'ready'
 }
 
@@ -28,7 +27,6 @@ export function MemberListPage({
   onCopyInviteLink,
   onDeleteStudy,
   onRemoveMember,
-  onTransferLeadership,
   status,
 }: MemberListPageProps) {
   const [isCopied, setIsCopied] = useState(false)
@@ -79,7 +77,6 @@ export function MemberListPage({
                   <img alt="스터디 리드" className="leader-crown" src={crownIcon} />
                 ) : canRemoveMembers ? (
                   <span className="member-actions">
-                    <button aria-label={`${member.displayName}님에게 리드 양도`} onClick={() => onTransferLeadership(member)} type="button">리드 양도</button>
                     <button aria-label={`${member.displayName}님 방출하기`} onClick={() => onRemoveMember(member)} type="button">방출</button>
                   </span>
                 ) : null}
