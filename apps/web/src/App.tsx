@@ -109,7 +109,6 @@ type NativeMessage =
   | { type: 'send-assignment-reminder'; assignmentId: string; memberIds: string[]; source: 'all' | 'member' }
   | { type: 'study-selected'; studyId: string }
   | { type: 'submit-assignment'; assignmentId: string; content: string; link?: string }
-  | { type: 'transfer-study-leadership'; displayName: string; memberId: string }
   | ({ type: 'update-assignment'; assignmentId: string } & CreateAssignmentInput)
   | ({ type: 'update-notice'; noticeId: string } & CreateNoticeInput)
 
@@ -934,14 +933,6 @@ function App() {
     )
   }
 
-  const transferLeadership = (member: StudyMember) => {
-    postToNative({
-      displayName: member.displayName,
-      memberId: member.id,
-      type: 'transfer-study-leadership',
-    })
-  }
-
   const deleteSelectedStudy = () => {
     if (window.ReactNativeWebView) {
       postToNative({ studyName: selectedStudy.name, type: 'delete-study' })
@@ -1200,7 +1191,6 @@ function App() {
       onCopyInviteLink={copyInviteLink}
       onDeleteStudy={deleteSelectedStudy}
       onRemoveMember={removeMember}
-      onTransferLeadership={transferLeadership}
       onOpenNotice={openNotice}
       onCreateNotice={openCreateNotice}
       onCreateAssignment={openCreateAssignment}
@@ -1312,7 +1302,6 @@ type StudyPageProps = {
   onCopyInviteLink: (inviteUrl: string) => void
   onDeleteStudy: () => void
   onRemoveMember: (member: StudyMember) => void
-  onTransferLeadership: (member: StudyMember) => void
   onOpenNotice: (noticeId: string) => void
   onCreateNotice: () => void
   onCreateAssignment: () => void
@@ -1335,7 +1324,6 @@ function StudyPage({
   onCopyInviteLink,
   onDeleteStudy,
   onRemoveMember,
-  onTransferLeadership,
   onOpenNotice,
   onCreateNotice,
   onCreateAssignment,
@@ -1354,7 +1342,6 @@ function StudyPage({
         onCopyInviteLink={onCopyInviteLink}
         onDeleteStudy={onDeleteStudy}
         onRemoveMember={onRemoveMember}
-        onTransferLeadership={onTransferLeadership}
         status={memberDataStatus}
       />
     )
