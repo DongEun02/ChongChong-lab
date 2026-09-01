@@ -17,6 +17,7 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build:web && pnpm doctor:mobile"
   },
   "devDependencies": {
+    "@expo/config-plugins": "~57.0.9",
     "expo-doctor": "1.20.1"
   }
 }
